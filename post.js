@@ -64,7 +64,7 @@ function toJSValue(ctx, value) {
 }
 
 function toJSValuePtr(ctx, value) {
-	if (value === null) return QJS_GetNullPtr();
+	if (value === null) return _QJS_GetNullPtr();
 
 	switch (typeof value) {
 		case 'string':
@@ -74,7 +74,7 @@ function toJSValuePtr(ctx, value) {
 			return QJS_NewNumberPtr(ctx, value);
 
 		case 'boolean':
-			return value ? QJS_GetTruePtr() : QJS_GetFalsePtr();
+			return value ? _QJS_GetTruePtr() : _QJS_GetFalsePtr();
 
 		case 'object':
 		case 'function':
@@ -84,7 +84,7 @@ function toJSValuePtr(ctx, value) {
 			return QJS_NewBigIntPtr(ctx, Number(value));
 	}
 
-	return QJS_GetUndefinedPtr();
+	return _QJS_GetUndefinedPtr();
 }
 
 const funcMap = new Map();
@@ -143,12 +143,15 @@ function getReturnValue() {
 
 let args = [];
 
+/* no_bundle */
 let bytecode;
 let eval;
+/* no_bundle */
 
 let JS_NewString, 
 	QJS_NewBigInt, 
 	QJS_NewNumber, 
+	QJS_NewHostObject,
 	QJS_Call, 
 	QJS_FreeValue, 
 	QJS_DupValue;
@@ -156,16 +159,14 @@ let JS_NewString,
 let QJS_NewStringPtr, 
 	QJS_NewNumberPtr,
 	QJS_NewBigIntPtr,
-	QJS_NewHostObjectPtr,
-	QJS_GetNullPtr, 
-	QJS_GetUndefinedPtr, 
-	QJS_GetFalsePtr, 
-	QJS_GetTruePtr; 
+	QJS_NewHostObjectPtr; 
 
 Module.postRun = Module.postRun || [];
 Module.postRun.push(function () {
+	/* no_bundle */
 	bytecode = cwrap('bytecode', 'number', ['string']);
 	eval = cwrap('eval', null, ['array', 'number']);
+	/* no_bundle */
 
 	JS_NewString = cwrap('JS_NewString', 'number', ['number', 'string']);
 	QJS_NewNumber = cwrap('QJS_NewNumber', 'number', ['number', 'number']);
@@ -179,13 +180,9 @@ Module.postRun.push(function () {
 	QJS_NewNumberPtr = cwrap('QJS_NewNumberPtr', 'number', ['number', 'number']);
 	QJS_NewBigIntPtr = cwrap('QJS_NewBigIntPtr', 'number', ['number', 'number']);
 	QJS_NewHostObjectPtr = cwrap('QJS_NewHostObjectPtr', 'number', ['number', 'number']);
-
-	QJS_GetNullPtr = cwrap('QJS_GetNullPtr', 'number');
-	QJS_GetUndefinedPtr = cwrap('QJS_GetUndefinedPtr', 'number');
-	QJS_GetFalsePtr = cwrap('QJS_GetFalsePtr', 'number');
-	QJS_GetTruePtr = cwrap('QJS_GetTruePtr', 'number');
 });
 
+/* no_bundle */
 Module.getBytecode = function (code) {
 	const ptr = bytecode(code);
 	const dataPtr = HEAP32[ptr >> 2];
@@ -200,3 +197,4 @@ Module.eval = function (bytes) {
 	eval(bytes, bytes.length);
 	return getReturnValue();
 }
+/* no_bundle */

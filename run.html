@@ -6,7 +6,8 @@
 	<title></title>
 </head>
 <body>
-	<script src="out.js"></script>
+	<script src="dist.js"></script>
+	<!-- <script src="out.js"></script>
 	<script>
 
 const code = `
@@ -85,7 +86,7 @@ function animate() {
 
 animate();
 
-`
+`;
 
 Module().then(wasm => {
 	const bytes = wasm.getBytecode(code);
@@ -104,6 +105,6 @@ function toBase64(array) {
 	return btoa(string);
 }
 
-	</script>
+	</script> -->
 </body>
 </html>
