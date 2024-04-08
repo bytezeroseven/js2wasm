@@ -1,0 +1,202 @@
+const hostObjects = [{
+	object: globalThis,
+	refCount: 1
+}];
+
+function getHostObject(id) {
+	return hostObjects[id].object;
+}
+
+function hostObjectToId(object) {
+	let id = hostObjects.findIndex(entry => entry && entry.object === object);
+	if (id === -1) {
+		id = hostObjects.findIndex(x => !x);
+		if (id === -1) id = hostObjects.length;
+
+		hostObjects[id] = {
+			object, 
+			refCount: 1
+		};
+	} else {
+		hostObjects[id].refCount++;
+	}
+
+	return id;
+}
+
+function finalizeHostObject(id) {
+	if (--hostObjects[id].refCount <= 0) {
+		hostObjects[id] = null;
+
+		let currLength = hostObjects.length;
+		let newLength = currLength;
+		for (; newLength > 0; newLength --) {
+			if (hostObjects[newLength - 1]) break;
+		}
+		if (newLength < currLength) {
+			hostObjects.length = newLength;
+		}
+	}
+}
+
+function toJSValue(ctx, value) {
+	if (value === null) return _QJS_GetNull();
+
+	switch (typeof value) {
+		case 'string':
+			return JS_NewString(ctx, value);
+
+		case 'number':
+			return QJS_NewNumber(ctx, value);
+
+		case 'boolean':
+			return value ? _QJS_GetTrue() : _QJS_GetFalse();
+
+		case 'object':
+		case 'function':
+			return QJS_NewHostObject(ctx, hostObjectToId(value));
+
+		case 'bigint':
+			return QJS_NewBigInt(ctx, Number(value));
+	}
+
+	return _QJS_GetUndefined();
+}
+
+function toJSValuePtr(ctx, value) {
+	if (value === null) return QJS_GetNullPtr();
+
+	switch (typeof value) {
+		case 'string':
+			return QJS_NewStringPtr(ctx, value);
+
+		case 'number':
+			return QJS_NewNumberPtr(ctx, value);
+
+		case 'boolean':
+			return value ? QJS_GetTruePtr() : QJS_GetFalsePtr();
+
+		case 'object':
+		case 'function':
+			return QJS_NewHostObjectPtr(ctx, hostObjectToId(value));
+
+		case 'bigint':
+			return QJS_NewBigIntPtr(ctx, Number(value));
+	}
+
+	return QJS_GetUndefinedPtr();
+}
+
+const funcMap = new Map();
+
+const registry = new FinalizationRegistry(id => {
+	const ptr = funcMap.get(id).ptr;
+	QJS_FreeValue(ptr);
+	funcMap.delete(id);
+});
+
+function getFunction(ctx, funcPtr) {
+	const func = new BigUint64Array(Module.HEAP8.buffer, funcPtr, 1)[0];
+
+	const cache = funcMap.get(func);
+	if (cache) {
+		_free(funcPtr);
+		return cache.ref.deref();
+	}
+
+	const funcDupPtr = QJS_DupValue(ctx, funcPtr);
+	
+	const invoker = function () {
+		const ptrs = [];
+		for (let i = 0; i < arguments.length; i++) {
+			const ptr = toJSValuePtr(ctx, arguments[i]);
+			ptrs.push(ptr);
+		}
+
+		const typedArray = new Int32Array(ptrs);
+		const numBytes = 4 * ptrs.length;
+		const argvPtr = _malloc(numBytes);
+		const heapBytes = new Uint8Array(Module.HEAP8.buffer, argvPtr, numBytes);
+		heapBytes.set(new Uint8Array(typedArray.buffer));
+
+		QJS_Call(ctx, funcDupPtr, ptrs.length, argvPtr);
+
+		return getReturnValue();
+	}
+
+	funcMap.set(func, {
+		ref: new WeakRef(invoker), 
+		ptr: funcDupPtr
+	});
+
+	registry.register(invoker, func);
+
+	return invoker;
+}
+
+let returnValue;
+function getReturnValue() {
+	const value = returnValue;
+	returnValue = null;
+	return value;
+}
+
+let args = [];
+
+let bytecode;
+let eval;
+
+let JS_NewString, 
+	QJS_NewBigInt, 
+	QJS_NewNumber, 
+	QJS_Call, 
+	QJS_FreeValue, 
+	QJS_DupValue;
+
+let QJS_NewStringPtr, 
+	QJS_NewNumberPtr,
+	QJS_NewBigIntPtr,
+	QJS_NewHostObjectPtr,
+	QJS_GetNullPtr, 
+	QJS_GetUndefinedPtr, 
+	QJS_GetFalsePtr, 
+	QJS_GetTruePtr; 
+
+Module.postRun = Module.postRun || [];
+Module.postRun.push(function () {
+	bytecode = cwrap('bytecode', 'number', ['string']);
+	eval = cwrap('eval', null, ['array', 'number']);
+
+	JS_NewString = cwrap('JS_NewString', 'number', ['number', 'string']);
+	QJS_NewNumber = cwrap('QJS_NewNumber', 'number', ['number', 'number']);
+	QJS_NewBigInt = cwrap('QJS_NewBigInt', 'number', ['number', 'number']);
+	QJS_NewHostObject = cwrap('QJS_NewHostObject', 'number', ['number', 'number']);
+	QJS_Call = cwrap('QJS_Call', null, ['number', 'number']);
+	QJS_FreeValue = cwrap('QJS_FreeValue', null, ['number', 'number']);
+	QJS_DupValue = cwrap('QJS_DupValue', 'number', ['number', 'number']);
+
+	QJS_NewStringPtr = cwrap('QJS_NewStringPtr', 'number', ['number', 'string']);
+	QJS_NewNumberPtr = cwrap('QJS_NewNumberPtr', 'number', ['number', 'number']);
+	QJS_NewBigIntPtr = cwrap('QJS_NewBigIntPtr', 'number', ['number', 'number']);
+	QJS_NewHostObjectPtr = cwrap('QJS_NewHostObjectPtr', 'number', ['number', 'number']);
+
+	QJS_GetNullPtr = cwrap('QJS_GetNullPtr', 'number');
+	QJS_GetUndefinedPtr = cwrap('QJS_GetUndefinedPtr', 'number');
+	QJS_GetFalsePtr = cwrap('QJS_GetFalsePtr', 'number');
+	QJS_GetTruePtr = cwrap('QJS_GetTruePtr', 'number');
+});
+
+Module.getBytecode = function (code) {
+	const ptr = bytecode(code);
+	const dataPtr = HEAP32[ptr >> 2];
+	const length = HEAP32[(ptr + 4) >> 2];
+	const bytes = new Uint8Array(HEAP8.buffer, dataPtr, length);
+
+	Module._free(ptr);
+	return bytes;
+}
+
+Module.eval = function (bytes) {
+	eval(bytes, bytes.length);
+	return getReturnValue();
+}
