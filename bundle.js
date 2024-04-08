@@ -1,33 +1,44 @@
 const fs = require('fs');
-const { exec }  = require('child_process');
 const { minify } = require('terser');
+const exec = require('child_process').exec;
 
 const Module = require('./out.js');
 
+const input = process.argv[2];
+const output = process.argv[3];
+
+if (!input || !output) {
+	console.log(`Missing arguments.\nUsage: node build.js [input_file] [output_file]`);
+	process.exit(0);
+}
+
 Module().then(wasm => {
-	const bytes = wasm.getBytecode(`window.console.log("skibidi toilet");`);
+	const code = fs.readFileSync(input, 'utf8');
+	const bytes = wasm.getBytecode(code);
+
+	console.log(`bytecode length: ${bytes.length}`);
 
 	writeCFile(bytes);
 	writeJsFile();
 
 	const cmd = getCmd();
-	console.log(cmd)
+	console.log(`running: ${cmd}`);
 
 	exec(cmd, (error, stderr, stdout) => {
 		fs.rmSync('temp-main.c');
 		fs.rmSync('temp-post.js');
 
 		if (error) throw error;
-		if (stderr) throw new Error(stderr);
-		
-		console.log(stdout);
+		if (stderr) throw new Error(`stderr: ${stderr}`);
+
+		console.log(`stdout: ${stdout}`);
 
 		afterBuild();
 	});
 });
 
 async function afterBuild() {
-	let code = fs.readFileSync('dist.js', 'utf8');
+	let code = fs.readFileSync(output, 'utf8');
 
 	const mangled = {};
 	let i = 0;
@@ -53,7 +64,7 @@ async function afterBuild() {
 		}
 	});
 
-	fs.writeFileSync('dist.js', result.code);
+	fs.writeFileSync(output, result.code);
 }
 
 function writeCFile(bytes) {
@@ -86,6 +97,7 @@ function writeCFile(bytes) {
 function writeJsFile() {
 	let code = fs.readFileSync('./post.js', 'utf8');
 	code = code.replace(/\/\* no_bundle \*\/[\s\S]*?\/\* no_bundle \*\//g, '');
+
 	fs.writeFileSync('temp-post.js', code);
 }
 
@@ -102,5 +114,5 @@ function getCmd() {
 	return cmd.replace(regex, `EXPORTED_FUNCTIONS='${list.join(', ')}'`)
 		.replace('main.c', 'temp-main.c')
 		.replace('post.js', 'temp-post.js')
-		.replace('out.js', 'dist.js');
+		.replace('out.js', output);
 }

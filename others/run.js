@@ -1,4 +1,4 @@
-const getWasm = require('./out.js');
+const getWasm = require('../out.js');
 
 const code = `
 
