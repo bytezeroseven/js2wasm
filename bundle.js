@@ -1,6 +1,7 @@
 const fs = require('fs');
 const { minify } = require('terser');
 const exec = require('child_process').exec;
+const path = require('path');
 
 const Module = require('./out.js');
 
@@ -10,6 +11,13 @@ const output = process.argv[3];
 if (!input || !output) {
 	console.log(`Missing arguments.\nUsage: node build.js [input_file] [output_file]`);
 	process.exit(0);
+}
+
+const outputDir = path.dirname(output);
+if (!fs.existsSync(outputDir)) {
+	fs.mkdirSync(outputDir, {
+		recursive: true
+	});
 }
 
 Module().then(wasm => {
@@ -58,7 +66,7 @@ async function afterBuild() {
 		mangle: {
 			toplevel: true, 
 			properties: {
-				regex: /object|refCount|ref|ptr/, 
+				regex: /\b(?:object|refCount|ref|ptr)\b/, 
 				builtins: true
 			}
 		}
