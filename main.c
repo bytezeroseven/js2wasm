@@ -147,7 +147,7 @@ JSValue set_prop(JSContext* ctx, JSValueConst jsThis, int argc, JSValueConst* ar
 			host_set_prop_undefined(id, prop);
 	}
 
-	return JS_UNDEFINED;
+	return JS_TRUE;
 }
 
 void host_set_args(JSValue* ctx, int offset, int argc, JSValueConst* argv) {
