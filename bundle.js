@@ -20,8 +20,10 @@ if (!fs.existsSync(outputDir)) {
 	});
 }
 
-Module().then(wasm => {
-	const code = fs.readFileSync(input, 'utf8');
+Module().then(async wasm => {
+	let code = fs.readFileSync(input, 'utf8');
+	code = await minifyJs(code);
+
 	const bytes = wasm.getBytecode(code);
 
 	console.log(`bytecode length: ${bytes.length}`);
@@ -62,6 +64,12 @@ async function afterBuild() {
 
 	code += `\nModule().then(wasm => wasm["_${mangled.run}"]());`
 
+	code = await minifyJs(code);
+
+	fs.writeFileSync(output, code);
+}
+
+async function minifyJs(code) {
 	const result = await minify(code, {
 		mangle: {
 			toplevel: true, 
@@ -72,7 +80,7 @@ async function afterBuild() {
 		}
 	});
 
-	fs.writeFileSync(output, result.code);
+	return result.code;
 }
 
 function writeCFile(bytes) {
