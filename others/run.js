@@ -17,6 +17,10 @@ window.add = function(a, b) {
 	return a + b;
 }
 
+window.console.log(window.console.valueOf())
+window.console.log(window.console.valueOf() == window.console);
+window.console.log(window.console.valueOf() === window.console.valueOf());
+
 `;
 
 getWasm().then(wasm => {

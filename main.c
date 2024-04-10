@@ -469,6 +469,7 @@ void eval(uint8_t* bytes, size_t length) {
 		"	return new Proxy(object, {\n"
 		"		get(target, prop, receiver) {\n"
 		"			if (prop === '__host_object_id__') return id;\n"
+		"			else if (prop === 'valueOf' || prop === Symbol.toPrimitive) return function () { return id; }\n"
 		"			return get_prop(id, prop);\n"
 		"		}, \n"
 		"		set(target, prop, value) {\n"
