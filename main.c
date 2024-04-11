@@ -4,6 +4,7 @@
 
 extern void host_throw_error(char* msg);
 extern void host_finalize(int32_t id);
+extern JSValue host_get_window(JSContext* ctx);
 
 extern void host_set_return_num(double num);
 extern void host_set_return_str(char* value);
@@ -395,6 +396,15 @@ JSValue* QJS_DupValue(JSContext* ctx, JSValue* value) {
 	return jsvalue_to_heap(JS_DupValue(ctx, *value));
 }
 
+JSValue QJS_DupValueOnStack(JSContext* ctx, JSValue* value) {
+	return JS_DupValue(ctx, *value);
+}
+
+void dec_ref_count(JSValue* v) {
+	JSRefCountHeader* p = (JSRefCountHeader*)JS_VALUE_GET_PTR(*v);
+	p->ref_count--;
+}
+
 typedef struct {
 	uint8_t* bytes;
 	size_t length;
@@ -469,7 +479,6 @@ void eval(uint8_t* bytes, size_t length) {
 		"	return new Proxy(object, {\n"
 		"		get(target, prop, receiver) {\n"
 		"			if (prop === '__host_object_id__') return id;\n"
-		"			else if (prop === 'valueOf' || prop === Symbol.toPrimitive) return function () { return id; }\n"
 		"			return get_prop(id, prop);\n"
 		"		}, \n"
 		"		set(target, prop, value) {\n"
@@ -496,7 +505,7 @@ void eval(uint8_t* bytes, size_t length) {
 	JS_SetPropertyStr(ctx, global, "set_prop", JS_NewCFunction(ctx, set_prop, "set_prop", 0));
 	JS_SetPropertyStr(ctx, global, "call_func", JS_NewCFunction(ctx, call_func, "call_func", 0));
 	JS_SetPropertyStr(ctx, global, "construct", JS_NewCFunction(ctx, construct, "construct", 0));
-	JS_SetPropertyStr(ctx, global, "window", QJS_NewHostObject(ctx, 0));
+	JS_SetPropertyStr(ctx, global, "window", host_get_window(ctx));
 	JS_FreeValue(ctx, global);
 
 	JSValue object = JS_ReadObject(ctx, bytes, length, JS_READ_OBJ_BYTECODE);

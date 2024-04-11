@@ -1,42 +1,33 @@
-const hostObjects = [{
-	object: globalThis,
-	refCount: 1
-}];
-
-function getHostObject(id) {
-	return hostObjects[id].object;
-}
-
-function hostObjectToId(object) {
-	let id = hostObjects.findIndex(entry => entry && entry.object === object);
-	if (id === -1) {
-		id = hostObjects.findIndex(x => !x);
-		if (id === -1) id = hostObjects.length;
-
-		hostObjects[id] = {
-			object, 
-			refCount: 1
-		};
-	} else {
-		hostObjects[id].refCount++;
-	}
-
-	return id;
-}
+const hostObjects = [];
 
 function finalizeHostObject(id) {
-	if (--hostObjects[id].refCount <= 0) {
-		hostObjects[id] = null;
+	_free(hostObjects[id].ptr);
+	hostObjects[id] = null;
 
-		let currLength = hostObjects.length;
-		let newLength = currLength;
-		for (; newLength > 0; newLength --) {
-			if (hostObjects[newLength - 1]) break;
-		}
-		if (newLength < currLength) {
-			hostObjects.length = newLength;
-		}
+	let currLength = hostObjects.length;
+	let newLength = currLength;
+	for (; newLength > 0; newLength --) {
+		if (hostObjects[newLength - 1]) break;
 	}
+	if (newLength < currLength) {
+		hostObjects.length = newLength;
+	}
+}
+
+function hostObjectToPtr(ctx, object) {
+	let cache = hostObjects.find(entry => entry && entry.object === object);
+	if (!cache) {
+		let id = hostObjects.findIndex(x => !x);
+		if (id === -1) id = hostObjects.length;
+
+		cache = {
+			object, 
+			ptr: QJS_NewHostObjectPtr(ctx, id)
+		};
+		dec_ref_count(cache.ptr);
+		hostObjects[id] = cache;
+	}
+	return cache.ptr;
 }
 
 function toJSValue(ctx, value) {
@@ -54,7 +45,7 @@ function toJSValue(ctx, value) {
 
 		case 'object':
 		case 'function':
-			return QJS_NewHostObject(ctx, hostObjectToId(value));
+			return QJS_DupValueOnStack(ctx, hostObjectToPtr(ctx, value));
 
 		case 'bigint':
 			return QJS_NewBigInt(ctx, Number(value));
@@ -78,7 +69,7 @@ function toJSValuePtr(ctx, value) {
 
 		case 'object':
 		case 'function':
-			return QJS_NewHostObjectPtr(ctx, hostObjectToId(value));
+			return QJS_DupValue(ctx, hostObjectToPtr(ctx, value));
 
 		case 'bigint':
 			return QJS_NewBigIntPtr(ctx, Number(value));
@@ -90,8 +81,8 @@ function toJSValuePtr(ctx, value) {
 const funcMap = new Map();
 
 const registry = new FinalizationRegistry(id => {
-	const ptr = funcMap.get(id).ptr;
-	QJS_FreeValue(ptr);
+	const entry = funcMap.get(id);
+	QJS_FreeValue(entry.ctx, entry.ptr);
 	funcMap.delete(id);
 });
 
@@ -126,7 +117,8 @@ function getFunction(ctx, funcPtr) {
 
 	funcMap.set(func, {
 		ref: new WeakRef(invoker), 
-		ptr: funcDupPtr
+		ptr: funcDupPtr, 
+		ctx
 	});
 
 	registry.register(invoker, func);
@@ -159,7 +151,10 @@ let JS_NewString,
 let QJS_NewStringPtr, 
 	QJS_NewNumberPtr,
 	QJS_NewBigIntPtr,
-	QJS_NewHostObjectPtr; 
+	QJS_NewHostObjectPtr, 
+	QJS_DupValueOnStack; 
+
+let dec_ref_count;
 
 Module.postRun = Module.postRun || [];
 Module.postRun.push(function () {
@@ -180,6 +175,9 @@ Module.postRun.push(function () {
 	QJS_NewNumberPtr = cwrap('QJS_NewNumberPtr', 'number', ['number', 'number']);
 	QJS_NewBigIntPtr = cwrap('QJS_NewBigIntPtr', 'number', ['number', 'number']);
 	QJS_NewHostObjectPtr = cwrap('QJS_NewHostObjectPtr', 'number', ['number', 'number']);
+
+	QJS_DupValueOnStack = cwrap('QJS_DupValueOnStack', 'number', ['number', 'number']);
+	dec_ref_count = cwrap('dec_ref_count', 'number', ['number']);
 });
 
 /* no_bundle */

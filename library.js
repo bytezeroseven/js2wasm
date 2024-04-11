@@ -5,6 +5,9 @@ addToLibrary({
 	host_finalize: function (id) {
 		finalizeHostObject(id);
 	}, 
+	host_get_window: function (ctx) {
+		return toJSValue(ctx, globalThis);
+	},
 
 	host_call_func: function (ctx, func, target) {
 		const value = hostObjects[func].object.apply(hostObjects[target].object, args);
