@@ -6,6 +6,7 @@ function HostObject(id) {
 
 	return new Proxy(object, {
 		get(target, prop, receiver) {
+			if (prop === '__host_object_id__') return id;
 			return get_prop(id, prop);
 		}, 
 		set(target, prop, value) {
