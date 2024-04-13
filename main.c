@@ -416,6 +416,10 @@ Bytecode* bytecode(char* code) {
 
 	JSValue object = JS_Eval(ctx, code, strlen(code), "<evalScript>", JS_EVAL_TYPE_GLOBAL | JS_EVAL_FLAG_COMPILE_ONLY);
 
+	if (JS_IsException(object)) {
+		handle_exception(ctx);
+	}
+
 	Bytecode* result = malloc(sizeof(Bytecode));
 	result->bytes = JS_WriteObject(ctx, &result->length, object, JS_WRITE_OBJ_BYTECODE);
 
