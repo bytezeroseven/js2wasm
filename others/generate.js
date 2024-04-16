@@ -128,6 +128,8 @@ switch (tag) {
 
 			}
 
+			JS_FreeValue(ctx, hostIdValue);
+
 		} else {
 			size_t length;
 			uint8_t* data = JS_GetArrayBuffer(ctx, &length, value);
@@ -142,6 +144,8 @@ switch (tag) {
 				} else {
 					host_set_return_json(JS_ToCString(ctx, json));
 				}
+
+				JS_FreeValue(ctx, json);
 			}
 		}
 		break;

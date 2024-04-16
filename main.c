@@ -125,6 +125,8 @@ JSValue set_prop(JSContext* ctx, JSValueConst jsThis, int argc, JSValueConst* ar
 
 				}
 
+				JS_FreeValue(ctx, hostIdValue);
+
 			} else {
 				size_t length;
 				uint8_t* data = JS_GetArrayBuffer(ctx, &length, value);
@@ -139,6 +141,8 @@ JSValue set_prop(JSContext* ctx, JSValueConst jsThis, int argc, JSValueConst* ar
 					} else {
 						host_set_prop_json(id, prop, JS_ToCString(ctx, json));
 					}
+
+					JS_FreeValue(ctx, json);
 				}
 			}
 			break;
@@ -206,6 +210,8 @@ void host_set_args(JSValue* ctx, int offset, int argc, JSValueConst* argv) {
 						host_set_arg_func(ctx, jsvalue_to_heap(value));
 
 					}
+					
+					JS_FreeValue(ctx, hostIdValue);
 
 				} else {
 					size_t length;
@@ -221,6 +227,8 @@ void host_set_args(JSValue* ctx, int offset, int argc, JSValueConst* argv) {
 						} else {
 							host_set_arg_json(JS_ToCString(ctx, json));
 						}
+
+						JS_FreeValue(ctx, json);
 					}
 				}
 				break;
@@ -306,6 +314,8 @@ void host_set_return(JSContext* ctx, JSValue value) {
 
 				}
 
+				JS_FreeValue(ctx, hostIdValue);
+
 			} else {
 				size_t length;
 				uint8_t* data = JS_GetArrayBuffer(ctx, &length, value);
@@ -320,6 +330,8 @@ void host_set_return(JSContext* ctx, JSValue value) {
 					} else {
 						host_set_return_json(JS_ToCString(ctx, json));
 					}
+
+					JS_FreeValue(ctx, json);
 				}
 			}
 			break;
@@ -386,6 +398,7 @@ void QJS_Call(JSContext* ctx, JSValueConst* func, int argc, JSValue** argv_ptrs)
 
 	JSValue value = JS_Call(ctx, *func, JS_UNDEFINED, argc, argv);
 	host_set_return(ctx, value);
+	JS_FreeValue(ctx, value);
 }
 
 void QJS_FreeValue(JSContext* ctx, JSValue* value) {
