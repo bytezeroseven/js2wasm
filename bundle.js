@@ -35,8 +35,8 @@ Module().then(async wasm => {
 	console.log(`running: ${cmd}`);
 
 	exec(cmd, (error, stderr, stdout) => {
-		fs.rmSync('temp-main.c');
-		fs.rmSync('temp-post.js');
+		deleteFile('temp-main.c');
+		deleteFile('temp-post.js');
 
 		if (error) throw error;
 		if (stderr) throw new Error(`stderr: ${stderr}`);
@@ -84,7 +84,7 @@ async function minifyJs(code) {
 }
 
 function writeCFile(bytes) {
-	let code = fs.readFileSync('./main.c', 'utf8');
+	let code = readFile('main.c');
 
 	code = code.replace(/char\* code\s*=\s*("[\s\S]+");/, function (match, content) {
 		const string = content.split('\n').map(x => x.trim().slice(1, -1).replaceAll('\\n', '')).join('\n');
@@ -97,7 +97,7 @@ function writeCFile(bytes) {
 		char* code = (char*)unmaskedBytes;
 
 		`;
-	})
+	});
 
 	code = code + `
 
@@ -109,7 +109,7 @@ function writeCFile(bytes) {
 
 	`;
 
-	fs.writeFileSync('temp-main.c', code);
+	writeFile('temp-main.c', code);
 }
 
 function getMaskCode(bytes) {
@@ -133,14 +133,14 @@ function getMaskCode(bytes) {
 }
 
 function writeJsFile() {
-	let code = fs.readFileSync('./post.js', 'utf8');
+	let code = readFile('./post.js');
 	code = code.replace(/\/\* no_bundle \*\/[\s\S]*?\/\* no_bundle \*\//g, '');
 
-	fs.writeFileSync('temp-post.js', code);
+	writeFile('temp-post.js', code);
 }
 
 function getCmd() {
-	const text = fs.readFileSync('Makefile', 'utf8');
+	const text = readFile('Makefile');
 	const cmd = text.split('\t')[1];
 
 	const regex = /EXPORTED_FUNCTIONS='([^']+)'/;
@@ -152,5 +152,19 @@ function getCmd() {
 	return cmd.replace(regex, `EXPORTED_FUNCTIONS='${list.join(', ')}'`)
 		.replace('main.c', 'temp-main.c')
 		.replace('post.js', 'temp-post.js')
-		.replace('out.js', output);
+		.replace('./out.js', '%out%')
+		.replaceAll('./', path.join(__dirname, './'))
+		.replace('%out%', output);
+}
+
+function readFile(file) {
+	return fs.readFileSync(path.join(__dirname, file), 'utf8');
+}
+
+function writeFile(file, content) {
+	fs.writeFileSync(path.join(__dirname, file), content);
+}
+
+function deleteFile(file) {
+	fs.rmSync(path.join(__dirname, file));
 }
