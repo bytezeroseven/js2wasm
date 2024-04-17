@@ -9,7 +9,8 @@ const input = process.argv[2];
 const output = process.argv[3];
 
 if (!input || !output) {
-	console.log(`Missing arguments.\nUsage: node build.js [input_file] [output_file]`);
+	const isNpx = process.argv[1].endsWith('bin.js');
+	console.log(`Missing arguments.\nUsage: ${isNpx ? `npx js2wasm` : `node bundle.js`} [input_js_file] [output_js_file]`);
 	process.exit(0);
 }
 

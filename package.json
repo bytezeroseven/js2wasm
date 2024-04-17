@@ -6,6 +6,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "bin": {
+    "js2wasm": "bin.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
