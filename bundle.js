@@ -75,7 +75,7 @@ async function minifyJs(code) {
 		mangle: {
 			toplevel: true, 
 			properties: {
-				regex: /\b(?:object|refCount|ref|ptr)\b/, 
+				regex: /\b(?:object|refCount|ref|ptr|ctx)\b/, 
 				builtins: true
 			}
 		}
