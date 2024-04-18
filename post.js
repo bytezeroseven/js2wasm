@@ -69,7 +69,7 @@ function toJSValuePtr(ctx, value) {
 
 		case 'object':
 		case 'function':
-			return QJS_DupValue(ctx, hostObjectToPtr(ctx, value));
+			return hostObjectToPtr(ctx, value);
 
 		case 'bigint':
 			return QJS_NewBigIntPtr(ctx, Number(value));
@@ -177,10 +177,13 @@ Module.postRun.push(function () {
 	QJS_NewHostObjectPtr = cwrap('QJS_NewHostObjectPtr', 'number', ['number', 'number']);
 
 	QJS_DupValueOnStack = cwrap('QJS_DupValueOnStack', 'number', ['number', 'number']);
-	dec_ref_count = cwrap('dec_ref_count', 'number', ['number']);
+	dec_ref_count = cwrap('dec_ref_count', null, ['number']);
 });
 
 /* no_bundle */
+Module.hostObjects = hostObjects;
+Module.funcMap = funcMap;
+
 Module.getBytecode = function (code) {
 	const ptr = bytecode(code);
 	const dataPtr = HEAP32[ptr >> 2];

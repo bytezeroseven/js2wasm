@@ -25,12 +25,17 @@ window.console.log('real shit:', window.console === window.console)
 */
 
 
-const c = window.console;
+/*const c = window.console;
 window.test = function (x) {
 	return x === c;
 }
 
 window.console === window.console;
+*/
+
+window.sus = function() {
+	window.console.log('obj');
+}
 
 `;
 
@@ -40,11 +45,8 @@ getWasm().then(wasm => {
 	console.log('>>> BYTECODE >>>\n', bytes);
 	console.log('>>> RESULT >>>\n', wasm.eval(bytes));
 
-	console.log('test()', globalThis.test(globalThis.console));
-
-	/*console.log(globalThis.output);
-	console.log(globalThis.getNum());
-	console.log(globalThis.add(20, 20));*/
+	globalThis.sus({name:'joe'})
+	console.log('Objects:', wasm.hostObjects.length);
 }).catch(error => {
 	console.log(error);
 });
