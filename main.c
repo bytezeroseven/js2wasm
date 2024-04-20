@@ -387,7 +387,12 @@ JSValue* QJS_NewStringPtr(JSContext* ctx, char* str) {
 }
 
 JSValue* QJS_NewHostObjectPtr(JSContext* ctx, int32_t id) {
-	return jsvalue_to_heap(QJS_NewHostObject(ctx, id));
+	JSValue v = QJS_NewHostObject(ctx, id);
+
+	JSRefCountHeader* p = (JSRefCountHeader*)JS_VALUE_GET_PTR(v);
+	p->ref_count--;
+
+	return jsvalue_to_heap(v);
 }
 
 void QJS_Call(JSContext* ctx, JSValueConst* func, int argc, JSValue** argv_ptrs) {
@@ -416,11 +421,6 @@ JSValue* QJS_DupValue(JSContext* ctx, JSValue* value) {
 
 JSValue QJS_DupValueOnStack(JSContext* ctx, JSValue* value) {
 	return JS_DupValue(ctx, *value);
-}
-
-void dec_ref_count(JSValue* v) {
-	JSRefCountHeader* p = (JSRefCountHeader*)JS_VALUE_GET_PTR(*v);
-	p->ref_count--;
 }
 
 typedef struct {

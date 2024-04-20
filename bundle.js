@@ -87,8 +87,27 @@ async function minifyJs(code) {
 function writeCFile(bytes) {
 	let code = readFile('main.c');
 
+	const mangled = {};
+	let i = 0;
+
+	code = code.replace(/(JS_NewCFunction\([^,]+,[^,]+,\s+)"([^",]+)"/g, function(match, before, name) {
+		if (!mangled[name]) {
+			mangled[name] = '_0x' + Math.random().toString(16).slice(2, 8);
+		}
+
+		return before + `"${mangled[name]}"`;
+	});
+
+	for (const name in mangled) {
+		code = code.replace(`"${name}"`, `"${mangled[name]}"`);
+	}
+
 	code = code.replace(/char\* code\s*=\s*("[\s\S]+");/, function (match, content) {
-		const string = content.split('\n').map(x => x.trim().slice(1, -1).replaceAll('\\n', '')).join('\n');
+		let string = content.split('\n').map(x => x.trim().slice(1, -1).replaceAll('\\n', '')).join('\n');
+		for (const name in mangled) {
+			string = string.replaceAll(' ' + name, ' ' + mangled[name]);
+		}
+
 		const bytes = new TextEncoder().encode(string);
 
 		return `

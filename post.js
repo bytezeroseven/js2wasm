@@ -24,7 +24,6 @@ function hostObjectToPtr(ctx, object) {
 			object, 
 			ptr: QJS_NewHostObjectPtr(ctx, id)
 		};
-		dec_ref_count(cache.ptr);
 		hostObjects[id] = cache;
 	}
 	return cache.ptr;
@@ -152,9 +151,7 @@ let QJS_NewStringPtr,
 	QJS_NewNumberPtr,
 	QJS_NewBigIntPtr,
 	QJS_NewHostObjectPtr, 
-	QJS_DupValueOnStack; 
-
-let dec_ref_count;
+	QJS_DupValueOnStack;
 
 Module.postRun = Module.postRun || [];
 Module.postRun.push(function () {
@@ -177,7 +174,6 @@ Module.postRun.push(function () {
 	QJS_NewHostObjectPtr = cwrap('QJS_NewHostObjectPtr', 'number', ['number', 'number']);
 
 	QJS_DupValueOnStack = cwrap('QJS_DupValueOnStack', 'number', ['number', 'number']);
-	dec_ref_count = cwrap('dec_ref_count', null, ['number']);
 });
 
 /* no_bundle */
