@@ -31,7 +31,7 @@ async function main() {
 	qjsCode = qjsCode.replace(/BC_TAG_([\w_=\d]+),/g, match => {
 		let id;
 		while (true) {
-			id = Math.floor(Math.random() * 256);
+			id = 1 + Math.floor(Math.random() * 255);
 			if (!ids.includes(id)) {
 				ids.push(id);
 				break;
