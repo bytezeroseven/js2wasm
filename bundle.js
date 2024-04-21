@@ -3,8 +3,6 @@ const { minify } = require('terser');
 const exec = require('child_process').exec;
 const path = require('path');
 
-const Module = require('./out.js');
-
 const input = process.argv[2];
 const output = process.argv[3];
 
@@ -21,32 +19,75 @@ if (!fs.existsSync(outputDir)) {
 	});
 }
 
-Module().then(async wasm => {
+main();
+
+async function main() {
 	let code = fs.readFileSync(input, 'utf8');
 	code = await minifyJs(code);
 
-	const bytes = wasm.getBytecode(code);
+	let qjsCode = readFile('quickjs/quickjs.c');
 
-	console.log(`bytecode length: ${bytes.length}`);
+	const mask1 = getRandomMask(1);
+	const mask2 = getRandomMask(2);
+	const mask4 = getRandomMask(4);
 
-	writeCFile(bytes);
-	writeJsFile();
+	qjsCode = qjsCode
+		.replace('BC_TAG_NULL = 1', `BC_TAG_NULL = ${1 + Math.floor(Math.random() * 100)}`)
+		.replace(`*pval = *s->ptr++;`, `*pval = (*s->ptr++) ^ ${mask1};`)
+		.replace(`dbuf_putc(&s->dbuf, v);`, `dbuf_putc(&s->dbuf, v ^ ${mask1});`)
 
-	const cmd = getCmd();
-	console.log(`running: ${cmd}`);
+		.replace(/\*pval = v;\s+s->ptr \+= 2;/, match => match.replace('= v', `= v ^ ${mask2}`))
+		.replace(`dbuf_put_u16(&s->dbuf, v);`, match => match.replace(', v', `, v ^ ${mask2}`))
+
+		.replace(/\*pval = v;\s+s->ptr \+= 4;/, match => match.replace('= v', `= v ^ ${mask4}`))
+		.replace(`dbuf_put_u32(&s->dbuf, v);`, match => match.replace(', v', `, v ^ ${mask4}`));
+
+	writeFile('quickjs/temp-quickjs.c', qjsCode);
+
+	const buildWasmCmd = getRawCmd()
+		.replace('quickjs.c', 'temp-quickjs.c')
+		.replace('out.js', 'temp-out.js')
+		.replaceAll('./', path.join(__dirname, './')) + ' -s SINGLE_FILE=1';
+
+	runCmd(buildWasmCmd, null, async function () {
+		const Module = require('./temp-out.js');
+		const wasm = await Module();
+
+		deleteFile('temp-out.js');
+
+		const bytes = wasm.getBytecode(code);
+		console.log(`bytecode length: ${bytes.length}`);
+
+		writeCFile(bytes);
+		writeJsFile();
+
+		runCmd(getBuildCmd(), function () {
+			deleteFile('temp-main.c');
+			deleteFile('temp-post.js');
+			deleteFile('quickjs/temp-quickjs.c');
+		}, afterBuild);
+	});
+}
+
+function runCmd(cmd, onFinish, onSuccess) {
+	console.log(`running:\n${cmd}`);
 
 	exec(cmd, (error, stderr, stdout) => {
-		deleteFile('temp-main.c');
-		deleteFile('temp-post.js');
+		onFinish && onFinish();
 
 		if (error) throw error;
 		if (stderr) throw new Error(`stderr: ${stderr}`);
 
-		console.log(`stdout: ${stdout}`);
+		console.log(`stdout ${stdout}`);
 
-		afterBuild();
+		onSuccess && onSuccess();
 	});
-});
+}
+
+function getRandomMask(numBytes) {
+	const max = Math.pow(2, 8 * numBytes);
+	return 1 + Math.floor(Math.random() * (max - 1));
+}
 
 async function afterBuild() {
 	let code = fs.readFileSync(output, 'utf8');
@@ -159,9 +200,8 @@ function writeJsFile() {
 	writeFile('temp-post.js', code);
 }
 
-function getCmd() {
-	const text = readFile('Makefile');
-	const cmd = text.split('\t')[1];
+function getBuildCmd() {
+	const cmd = getRawCmd();
 
 	const regex = /EXPORTED_FUNCTIONS='([^']+)'/;
 	const list = regex.exec(cmd)[1].split(',').map(x => x.trim());
@@ -172,9 +212,15 @@ function getCmd() {
 	return cmd.replace(regex, `EXPORTED_FUNCTIONS='${list.join(', ')}'`)
 		.replace('main.c', 'temp-main.c')
 		.replace('post.js', 'temp-post.js')
+		.replace('quickjs.c', 'temp-quickjs.c')
 		.replace('./out.js', '%out%')
 		.replaceAll('./', path.join(__dirname, './'))
 		.replace('%out%', output);
+}
+
+function getRawCmd() {
+	const text = readFile('Makefile');
+	return text.split('\t')[1];
 }
 
 function readFile(file) {

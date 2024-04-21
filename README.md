@@ -49,7 +49,7 @@ Mainly for security reasons. It makes reverse engineering even harder. Here's ev
 2. `getBytecode()` & `eval()` are not exported. Some JS code is also trimmed out. 
 3. Internal variable names and strings are obfuscated. 
 4. All exported function names are mangled. 
-5. ~~QuickJS bytecode OP codes are randomized. Bundle won't be able to execute any bytecode generated from the original QuickJS.~~
+5. QuickJS bytecode OP codes are randomized. Bundle won't be able to execute any bytecode generated from the original QuickJS.
 
 ## Credits
 Created by Zertalious.
