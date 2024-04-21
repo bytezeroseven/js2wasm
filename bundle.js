@@ -27,20 +27,19 @@ async function main() {
 
 	let qjsCode = readFile('quickjs/quickjs.c');
 
-	const mask1 = getRandomMask(1);
-	const mask2 = getRandomMask(2);
-	const mask4 = getRandomMask(4);
+	const ids = [];
+	qjsCode = qjsCode.replace(/BC_TAG_([\w_=\d]+),/g, match => {
+		let id;
+		while (true) {
+			id = Math.floor(Math.random() * 256);
+			if (!ids.includes(id)) {
+				ids.push(id);
+				break;
+			}
+		}
 
-	qjsCode = qjsCode
-		.replace('BC_TAG_NULL = 1', `BC_TAG_NULL = ${1 + Math.floor(Math.random() * 100)}`)
-		.replace(`*pval = *s->ptr++;`, `*pval = (*s->ptr++) ^ ${mask1};`)
-		.replace(`dbuf_putc(&s->dbuf, v);`, `dbuf_putc(&s->dbuf, v ^ ${mask1});`)
-
-		.replace(/\*pval = v;\s+s->ptr \+= 2;/, match => match.replace('= v', `= v ^ ${mask2}`))
-		.replace(`dbuf_put_u16(&s->dbuf, v);`, match => match.replace(', v', `, v ^ ${mask2}`))
-
-		.replace(/\*pval = v;\s+s->ptr \+= 4;/, match => match.replace('= v', `= v ^ ${mask4}`))
-		.replace(`dbuf_put_u32(&s->dbuf, v);`, match => match.replace(', v', `, v ^ ${mask4}`));
+		return match.slice(0, -1) + ' = ' + id + ',';
+	});
 
 	writeFile('quickjs/temp-quickjs.c', qjsCode);
 
@@ -82,11 +81,6 @@ function runCmd(cmd, onFinish, onSuccess) {
 
 		onSuccess && onSuccess();
 	});
-}
-
-function getRandomMask(numBytes) {
-	const max = Math.pow(2, 8 * numBytes);
-	return 1 + Math.floor(Math.random() * (max - 1));
 }
 
 async function afterBuild() {
