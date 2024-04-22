@@ -54,7 +54,11 @@ JSValue* jsvalue_to_heap(JSValue value) {
 
 void handle_exception(JSContext* ctx) {
 	JSValue exception = JS_GetException(ctx);
-	host_throw_error(JS_ToCString(ctx, exception));
+	
+	char* str = JS_ToCString(ctx, exception);
+	host_throw_error(str);
+	JS_FreeCString(ctx, str);
+
 	JS_FreeValue(ctx, exception);
 }
 
@@ -63,7 +67,10 @@ JSValue get_prop(JSContext* ctx, JSValueConst jsThis, int argc, JSValueConst* ar
 	JS_ToInt32(ctx, &id, argv[0]);
 
 	char* prop = JS_ToCString(ctx, argv[1]);
-	return host_get_prop(ctx, id, prop);
+	JSValue result = host_get_prop(ctx, id, prop);
+	JS_FreeCString(ctx, prop);
+
+	return result;
 }
 
 JSValue set_prop(JSContext* ctx, JSValueConst jsThis, int argc, JSValueConst* argv) {
@@ -80,9 +87,11 @@ JSValue set_prop(JSContext* ctx, JSValueConst jsThis, int argc, JSValueConst* ar
 			handle_exception(ctx);
 		}	break;
 
-		case JS_TAG_STRING:
-			host_set_prop_str(id, prop, JS_ToCString(ctx, value));
-			break;
+		case JS_TAG_STRING: {
+			char* str = JS_ToCString(ctx, value);
+			host_set_prop_str(id, prop, str);
+			JS_FreeCString(ctx, str);
+		}	break;
 
 		case JS_TAG_INT:
 		case JS_TAG_FLOAT64: {
@@ -139,7 +148,9 @@ JSValue set_prop(JSContext* ctx, JSValueConst jsThis, int argc, JSValueConst* ar
 					if (JS_IsException(json)) {
 						handle_exception(ctx);
 					} else {
-						host_set_prop_json(id, prop, JS_ToCString(ctx, json));
+						char* cjson = JS_ToCString(ctx, json);
+						host_set_prop_json(id, prop, cjson);
+						JS_FreeCString(ctx, cjson);
 					}
 
 					JS_FreeValue(ctx, json);
@@ -152,6 +163,8 @@ JSValue set_prop(JSContext* ctx, JSValueConst jsThis, int argc, JSValueConst* ar
 			host_set_prop_undefined(id, prop);
 	}
 
+	JS_FreeCString(ctx, prop);
+
 	return JS_TRUE;
 }
 
@@ -159,6 +172,7 @@ void host_set_args(JSValue* ctx, int offset, int argc, JSValueConst* argv) {
 	for (int i = offset; i < argc; i++) {
 		JSValue value = argv[i];
 
+		
 		uint32_t tag = JS_VALUE_GET_NORM_TAG(value);
 
 		switch (tag) {
@@ -166,9 +180,11 @@ void host_set_args(JSValue* ctx, int offset, int argc, JSValueConst* argv) {
 				handle_exception(ctx);
 			}	break;
 
-			case JS_TAG_STRING:
-				host_set_arg_str(JS_ToCString(ctx, value));
-				break;
+			case JS_TAG_STRING: {
+				char* str = JS_ToCString(ctx, value);
+				host_set_arg_str(str);
+				JS_FreeCString(ctx, str);
+			}	break;
 
 			case JS_TAG_INT:
 			case JS_TAG_FLOAT64: {
@@ -206,11 +222,11 @@ void host_set_args(JSValue* ctx, int offset, int argc, JSValueConst* argv) {
 						host_set_arg_hostobject(hostId);
 
 					} else {
-						
+
 						host_set_arg_func(ctx, jsvalue_to_heap(value));
 
 					}
-					
+
 					JS_FreeValue(ctx, hostIdValue);
 
 				} else {
@@ -225,7 +241,9 @@ void host_set_args(JSValue* ctx, int offset, int argc, JSValueConst* argv) {
 						if (JS_IsException(json)) {
 							handle_exception(ctx);
 						} else {
-							host_set_arg_json(JS_ToCString(ctx, json));
+							char* cjson = JS_ToCString(ctx, json);
+							host_set_arg_json(cjson);
+							JS_FreeCString(ctx, cjson);
 						}
 
 						JS_FreeValue(ctx, json);
@@ -269,9 +287,11 @@ void host_set_return(JSContext* ctx, JSValue value) {
 			handle_exception(ctx);
 		}	break;
 
-		case JS_TAG_STRING:
-			host_set_return_str(JS_ToCString(ctx, value));
-			break;
+		case JS_TAG_STRING: {
+			char* str = JS_ToCString(ctx, value);
+			host_set_return_str(str);
+			JS_FreeCString(ctx, str);
+		}	break;
 
 		case JS_TAG_INT:
 		case JS_TAG_FLOAT64: {
@@ -328,7 +348,9 @@ void host_set_return(JSContext* ctx, JSValue value) {
 					if (JS_IsException(json)) {
 						handle_exception(ctx);
 					} else {
-						host_set_return_json(JS_ToCString(ctx, json));
+						char* cjson = JS_ToCString(ctx, json);
+						host_set_return_json(cjson);
+						JS_FreeCString(ctx, cjson);
 					}
 
 					JS_FreeValue(ctx, json);

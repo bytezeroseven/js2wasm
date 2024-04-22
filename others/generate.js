@@ -81,9 +81,11 @@ switch (tag) {
 		handle_exception(ctx);
 	}	break;
 
-	case JS_TAG_STRING:
-		host_set_return_str(JS_ToCString(ctx, value));
-		break;
+	case JS_TAG_STRING: {
+		char* str = JS_ToCString(ctx, value);
+		host_set_return_str(str);
+		JS_FreeCString(ctx, str);
+	}	break;
 
 	case JS_TAG_INT:
 	case JS_TAG_FLOAT64: {
@@ -121,10 +123,8 @@ switch (tag) {
 				host_set_return_hostobject(hostId);
 
 			} else {
-				
-				JSValueConst* funcDup = malloc(sizeof(JSValueConst));
-				*funcDup = JS_DupValue(ctx, value);
-				host_set_return_func(ctx, funcDup);
+
+				host_set_return_func(ctx, jsvalue_to_heap(value));
 
 			}
 
@@ -142,7 +142,9 @@ switch (tag) {
 				if (JS_IsException(json)) {
 					handle_exception(ctx);
 				} else {
-					host_set_return_json(JS_ToCString(ctx, json));
+					char* cjson = JS_ToCString(ctx, json);
+					host_set_return_json(cjson);
+					JS_FreeCString(ctx, cjson);
 				}
 
 				JS_FreeValue(ctx, json);
