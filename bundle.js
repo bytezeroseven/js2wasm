@@ -31,8 +31,8 @@ async function main() {
 	qjsCode = qjsCode.replace(/BC_TAG_([\w_=\d]+),/g, match => {
 		let id;
 		while (true) {
-			id = 1 + Math.floor(Math.random() * 255);
-			if (!ids.includes(id)) {
+			id = 1 + Math.floor(Math.random() * 254);
+			if (ids.indexOf(id) === -1) {
 				ids.push(id);
 				break;
 			}
@@ -40,6 +40,28 @@ async function main() {
 
 		return match.slice(0, -1) + ' = ' + id + ',';
 	});
+
+	const mask8 = getBitmask(8);
+	const mask16 = getBitmask(16);
+
+	qjsCode = qjsCode.replace(`dbuf_put(&s->dbuf, p->u.str8, p->len);`, `
+		for(i = 0; i < p->len; i++) {
+			dbuf_putc(&s->dbuf, p->u.str8[i] ^ ${mask8});
+		}
+	`).replace(`p->u.str8[size] = '\\0';`, `
+		for (uint32_t i = 0; i < len; i++) {
+			p->u.str8[i] ^= ${mask8};
+		}
+		p->u.str8[size] = '\\0';
+	`);
+
+	qjsCode = qjsCode.replace(`bc_put_u16(s, p->u.str16[i]);`, `
+		bc_put_u16(s, p->u.str16[i] ^ ${mask16});
+	`).replace(`if (is_be()) {`, `
+		for (uint32_t i = 0; i < len; i++)
+		    p->u.str16[i] ^= ${mask16};
+		if (is_be()) {
+	`);
 
 	writeFile('quickjs/temp-quickjs.c', qjsCode);
 
@@ -127,7 +149,7 @@ function writeCFile(bytes) {
 
 	code = code.replace(/(JS_NewCFunction\([^,]+,[^,]+,\s+)"([^",]+)"/g, function(match, before, name) {
 		if (!mangled[name]) {
-			mangled[name] = '_0x' + Math.random().toString(16).slice(2, 8);
+			mangled[name] = getRandomName();
 		}
 
 		return before + `"${mangled[name]}"`;
@@ -136,6 +158,9 @@ function writeCFile(bytes) {
 	for (const name in mangled) {
 		code = code.replace(`"${name}"`, `"${mangled[name]}"`);
 	}
+
+	code = code.replaceAll('__host_object_id__', getRandomName())
+		.replaceAll('__finalizer__', getRandomName());
 
 	code = code.replace(/char\* code\s*=\s*("[\s\S]+");/, function (match, content) {
 		let string = content.split('\n').map(x => x.trim().slice(1, -1).replaceAll('\\n', '')).join('\n');
@@ -227,4 +252,12 @@ function writeFile(file, content) {
 
 function deleteFile(file) {
 	fs.rmSync(path.join(__dirname, file));
+}
+
+function getRandomName() {
+	return '_0x' + Math.random().toString(16).slice(2, 8);
+}
+
+function getBitmask(base) {
+	return 1 + Math.floor(Math.random() * (Math.pow(2, base) - 2));
 }

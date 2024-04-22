@@ -454,7 +454,7 @@ Bytecode* bytecode(char* code) {
 	JSRuntime* runtime = JS_NewRuntime();
 	JSContext* ctx = JS_NewContext(runtime);
 
-	JSValue object = JS_Eval(ctx, code, strlen(code), "<evalScript>", JS_EVAL_TYPE_GLOBAL | JS_EVAL_FLAG_COMPILE_ONLY);
+	JSValue object = JS_Eval(ctx, code, strlen(code), "", JS_EVAL_TYPE_GLOBAL | JS_EVAL_FLAG_COMPILE_ONLY);
 
 	if (JS_IsException(object)) {
 		handle_exception(ctx);
@@ -537,7 +537,7 @@ void eval(uint8_t* bytes, size_t length) {
 		"	});\n"
 		"}\n";
 
-	JSValue value = JS_Eval(ctx, code, strlen(code), "<HostObject>", JS_EVAL_TYPE_GLOBAL);
+	JSValue value = JS_Eval(ctx, code, strlen(code), "", JS_EVAL_TYPE_GLOBAL);
 	if (JS_IsException(value)) {
 		handle_exception(ctx);
 		return;
