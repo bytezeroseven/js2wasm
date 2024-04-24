@@ -156,7 +156,7 @@ let QJS_NewStringPtr,
 Module.postRun = Module.postRun || [];
 Module.postRun.push(function () {
 	/* no_bundle */
-	bytecode = cwrap('bytecode', 'number', ['string']);
+	bytecode = cwrap('bytecode', 'number', ['number']);
 	eval = cwrap('eval', null, ['array', 'number']);
 	/* no_bundle */
 
@@ -181,7 +181,14 @@ Module.hostObjects = hostObjects;
 Module.funcMap = funcMap;
 
 Module.getBytecode = function (code) {
-	const ptr = bytecode(code);
+	const codeSize = 1 + lengthBytesUTF8(code);
+	const codePtr = _malloc(codeSize);
+	stringToUTF8(code, codePtr, codeSize);
+
+	const ptr = bytecode(codePtr);
+
+	_free(codePtr);
+
 	const dataPtr = HEAP32[ptr >> 2];
 	const length = HEAP32[(ptr + 4) >> 2];
 	const bytes = new Uint8Array(HEAP8.buffer, dataPtr, length);
