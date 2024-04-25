@@ -1,30 +1,29 @@
-const hostObjects = [];
+const hostObjects = {};
+const hostObjectMap = new Map();
 
 function finalizeHostObject(id) {
-	_free(hostObjects[id].ptr);
+	const cache = hostObjects[id];
+	_free(cache.ptr);
+	
 	hostObjects[id] = null;
-
-	let currLength = hostObjects.length;
-	let newLength = currLength;
-	for (; newLength > 0; newLength --) {
-		if (hostObjects[newLength - 1]) break;
-	}
-	if (newLength < currLength) {
-		hostObjects.length = newLength;
-	}
+	hostObjectMap.delete(cache.object);
+	
+	availableIds.push(id);
 }
 
-function hostObjectToPtr(ctx, object) {
-	let cache = hostObjects.find(entry => entry && entry.object === object);
-	if (!cache) {
-		let id = hostObjects.findIndex(x => !x);
-		if (id === -1) id = hostObjects.length;
+const availableIds = [];
+let nextId = 0;
 
+function hostObjectToPtr(ctx, object) {
+	let cache = hostObjectMap.get(object);
+	if (!cache) {
+		const id = availableIds.length > 0 ? availableIds.pop() : nextId++;
 		cache = {
 			object, 
 			ptr: QJS_NewHostObjectPtr(ctx, id)
 		};
 		hostObjects[id] = cache;
+		hostObjectMap.set(object, cache);
 	}
 	return cache.ptr;
 }
