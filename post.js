@@ -7,7 +7,7 @@ function finalizeHostObject(id) {
 	
 	hostObjects[id] = null;
 	hostObjectMap.delete(cache.object);
-	
+
 	availableIds.push(id);
 }
 
@@ -156,7 +156,7 @@ Module.postRun = Module.postRun || [];
 Module.postRun.push(function () {
 	/* no_bundle */
 	bytecode = cwrap('bytecode', 'number', ['number']);
-	eval = cwrap('eval', null, ['array', 'number']);
+	eval = cwrap('eval', null, ['number', 'number']);
 	/* no_bundle */
 
 	JS_NewString = cwrap('JS_NewString', 'number', ['number', 'string']);
@@ -197,7 +197,12 @@ Module.getBytecode = function (code) {
 }
 
 Module.eval = function (bytes) {
-	eval(bytes, bytes.length);
+	const bytesPtr = _malloc(bytes.length);
+	writeArrayToMemory(bytes, bytesPtr);
+	eval(bytesPtr, bytes.length);
+	
+	_free(bytesPtr);
+
 	return getReturnValue();
 }
 /* no_bundle */
