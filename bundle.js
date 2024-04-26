@@ -23,7 +23,11 @@ main();
 
 async function main() {
 	let code = fs.readFileSync(input, 'utf8');
-	code = await minifyJs(code);
+	code = await minifyJs(code, {
+		mangle: {
+			toplevel: true
+		}
+	});
 
 	let qjsCode = readFile('quickjs/quickjs.c');
 
@@ -122,13 +126,7 @@ async function afterBuild() {
 
 	code += `\nModule().then(wasm => wasm["_${mangled.run}"]());`
 
-	code = await minifyJs(code);
-
-	fs.writeFileSync(output, code);
-}
-
-async function minifyJs(code) {
-	const result = await minify(code, {
+	code = await minifyJs(code, {
 		mangle: {
 			toplevel: true, 
 			properties: {
@@ -138,6 +136,11 @@ async function minifyJs(code) {
 		}
 	});
 
+	fs.writeFileSync(output, code);
+}
+
+async function minifyJs(code, options) {
+	const result = await minify(code, options);
 	return result.code;
 }
 
