@@ -172,22 +172,39 @@ function writeCFile(bytes) {
 		}
 
 		const bytes = new TextEncoder().encode(string);
+		const [mask, maskedBytes] = maskBytes(bytes);
 
 		return `
 
-		${getMaskCode(bytes)}
+		uint8_t maskedBytes[] = {${maskedBytes.toString()}};
+		uint8_t mask[] = {${mask.toString()}};
+
+		uint8_t unmaskedBytes[${bytes.length}];
+		for (int i = 0; i < ${bytes.length}; i++) {
+			unmaskedBytes[i] = maskedBytes[i] ^ mask[i % ${mask.length}];
+		}
 
 		char* code = (char*)unmaskedBytes;
 
 		`;
 	});
 
+	const [mask, maskedBytes] = maskBytes(bytes);
+
 	code = code + `
 
-	void run() {
-		${getMaskCode(bytes)}
+	uint8_t maskedBytes[] = {${maskedBytes.toString()}};
+	uint8_t mask[] = {${mask.toString()}};
 
-		eval(unmaskedBytes, bytesLength);
+	void run() {
+		uint8_t* unmaskedBytes = malloc(sizeof(uint8_t) * ${bytes.length});
+		for (int i = 0; i < ${bytes.length}; i++) {
+			unmaskedBytes[i] = maskedBytes[i] ^ mask[i % ${mask.length}];
+		}
+
+		eval(unmaskedBytes, ${bytes.length});
+
+		free(unmaskedBytes);
 	}
 
 	`;
@@ -195,24 +212,11 @@ function writeCFile(bytes) {
 	writeFile('temp-main.c', code);
 }
 
-function getMaskCode(bytes) {
-	const mask = Array.from({ length: 256 }, () => Math.floor(Math.random() * 256));
+function maskBytes(bytes) {
+	const mask = Array.from({ length: Math.min(256, bytes.length) }, () => Math.floor(Math.random() * 256));
 	const maskedBytes = bytes.map((x, i) => x ^ mask[i % mask.length]);
 
-	return `
-
-	uint8_t mask[] = {${mask.toString()}};
-	size_t maskLength = ${mask.length};
-
-	uint8_t maskedBytes[] = {${maskedBytes.toString()}};
-	size_t bytesLength = ${bytes.length};
-
-	uint8_t unmaskedBytes[bytesLength];
-	for (int i = 0; i < bytesLength; i++) {
-		unmaskedBytes[i] = maskedBytes[i] ^ mask[i % maskLength];
-	}
-
-	`;
+	return [mask, maskedBytes];
 }
 
 function writeJsFile() {
