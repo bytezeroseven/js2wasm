@@ -225,13 +225,13 @@ function writeJsFile() {
 function getBuildCmd() {
 	const cmd = getRawCmd();
 
-	const regex = /EXPORTED_FUNCTIONS='([^']+)'/;
+	const regex = /EXPORTED_FUNCTIONS="([^"]+)"/;
 	const list = regex.exec(cmd)[1].split(',').map(x => x.trim());
 	list.splice(list.indexOf('_eval'), 1);
 	list.splice(list.indexOf('_bytecode'), 1);
 	list.push('_run');
 
-	return cmd.replace(regex, `EXPORTED_FUNCTIONS='${list.join(', ')}'`)
+	return cmd.replace(regex, `EXPORTED_FUNCTIONS="${list.join(', ')}"`)
 		.replace('main.c', 'temp-main.c')
 		.replace('post.js', 'temp-post.js')
 		.replace('quickjs.c', 'temp-quickjs.c')
