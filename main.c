@@ -377,7 +377,7 @@ JSValue QJS_NewHostObject(JSContext* ctx, int32_t id) {
 	argv[0] = JS_NewInt32(ctx, id);
 
 	JSValue global = JS_GetGlobalObject(ctx);
-	JSValue func = JS_GetPropertyStr(ctx, global, "HostObject");
+	JSValue func = JS_GetPropertyStr(ctx, global, "__HostObject__");
 	JSValue result = JS_Call(ctx, func, JS_UNDEFINED, 1, argv);
 
 	JS_FreeValue(ctx, global);
@@ -517,7 +517,7 @@ void eval(uint8_t* bytes, size_t length) {
 	}
 
 	char* code = 
-		"function HostObject(id) {\n"
+		"function __HostObject__(id) {\n"
 		"	const object = function () {}\n"
 		"	object.__finalizer__ = new_finalizer(id);\n"
 		"	return new Proxy(object, {\n"

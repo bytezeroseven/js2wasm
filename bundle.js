@@ -83,7 +83,7 @@ async function main() {
 		const bytes = wasm.getBytecode(code);
 		console.log(`bytecode length: ${bytes.length}`);
 
-		writeCFile(bytes);
+		writeCFile(wasm, bytes);
 		writeJsFile();
 
 		runCmd(getBuildCmd(), function () {
@@ -144,12 +144,10 @@ async function minifyJs(code, options) {
 	return result.code;
 }
 
-function writeCFile(bytes) {
+function writeCFile(wasm, bytes) {
 	let code = readFile('main.c');
 
 	const mangled = {};
-	let i = 0;
-
 	code = code.replace(/(JS_NewCFunction\([^,]+,[^,]+,\s+)"([^",]+)"/g, function(match, before, name) {
 		if (!mangled[name]) {
 			mangled[name] = getRandomName();
@@ -163,7 +161,8 @@ function writeCFile(bytes) {
 	}
 
 	code = code.replaceAll('__host_object_id__', getRandomName())
-		.replaceAll('__finalizer__', getRandomName());
+		.replaceAll('__finalizer__', getRandomName())
+		.replaceAll('__HostObject__', getRandomName());
 
 	code = code.replace(/char\* code\s*=\s*("[\s\S]+");/, function (match, content) {
 		let string = content.split('\n').map(x => x.trim().slice(1, -1).replaceAll('\\n', '')).join('\n');
@@ -171,7 +170,7 @@ function writeCFile(bytes) {
 			string = string.replaceAll(' ' + name, ' ' + mangled[name]);
 		}
 
-		const bytes = new TextEncoder().encode(string);
+		const bytes = wasm.getBytecode(string);
 		const [mask, maskedBytes] = maskBytes(bytes);
 
 		return `
@@ -180,14 +179,18 @@ function writeCFile(bytes) {
 		uint8_t mask[] = {${mask.toString()}};
 
 		uint8_t unmaskedBytes[${bytes.length}];
+		size_t byteLength = ${bytes.length};
 		for (int i = 0; i < ${bytes.length}; i++) {
 			unmaskedBytes[i] = maskedBytes[i] ^ mask[i % ${mask.length}];
 		}
 
-		char* code = (char*)unmaskedBytes;
-
 		`;
 	});
+
+	code = code.replace(`JSValue value = JS_Eval(ctx, code, strlen(code), "", JS_EVAL_TYPE_GLOBAL);`, `
+		JSValue obj = JS_ReadObject(ctx, unmaskedBytes, byteLength, JS_READ_OBJ_BYTECODE);
+		JSValue value = JS_EvalFunction(ctx, obj);
+	`);
 
 	const [mask, maskedBytes] = maskBytes(bytes);
 
