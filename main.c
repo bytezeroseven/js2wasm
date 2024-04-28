@@ -46,6 +46,11 @@ extern JSValue host_get_prop(JSContext* ctx, int32_t id, char* prop);
 extern JSValue host_call_func(JSContext* ctx, int32_t func, int32_t target);
 extern JSValue host_construct(JSContext* ctx, int32_t cls);
 
+typedef struct {
+	JSValue HostObject;
+	JSAtom hostObjectId;
+} ContextData;
+
 JSValue* jsvalue_to_heap(JSValue value) {
 	JSValue* result = malloc(sizeof(JSValue));
 	*result = value;
@@ -121,7 +126,8 @@ JSValue set_prop(JSContext* ctx, JSValueConst jsThis, int argc, JSValueConst* ar
 		case JS_TAG_OBJECT: {
 			if (JS_IsFunction(ctx, value)) {
 
-				JSValue hostIdValue = JS_GetPropertyStr(ctx, value, "__host_object_id__");
+				ContextData* ctxData = (ContextData*)JS_GetContextOpaque(ctx);
+				JSValue hostIdValue = JS_GetProperty(ctx, value, ctxData->hostObjectId);
 				if (JS_IsNumber(hostIdValue)) {
 					
 					int32_t hostId;
@@ -214,7 +220,8 @@ void host_set_args(JSValue* ctx, int offset, int argc, JSValueConst* argv) {
 			case JS_TAG_OBJECT: {
 				if (JS_IsFunction(ctx, value)) {
 
-					JSValue hostIdValue = JS_GetPropertyStr(ctx, value, "__host_object_id__");
+					ContextData* ctxData = (ContextData*)JS_GetContextOpaque(ctx);
+					JSValue hostIdValue = JS_GetProperty(ctx, value, ctxData->hostObjectId);
 					if (JS_IsNumber(hostIdValue)) {
 						
 						int32_t hostId;
@@ -321,7 +328,8 @@ void host_set_return(JSContext* ctx, JSValue value) {
 		case JS_TAG_OBJECT: {
 			if (JS_IsFunction(ctx, value)) {
 
-				JSValue hostIdValue = JS_GetPropertyStr(ctx, value, "__host_object_id__");
+				ContextData* ctxData = (ContextData*)JS_GetContextOpaque(ctx);
+				JSValue hostIdValue = JS_GetProperty(ctx, value, ctxData->hostObjectId);
 				if (JS_IsNumber(hostIdValue)) {
 					
 					int32_t hostId;
@@ -376,12 +384,9 @@ JSValue QJS_NewHostObject(JSContext* ctx, int32_t id) {
 	JSValue argv[1];
 	argv[0] = JS_NewInt32(ctx, id);
 
-	JSValue global = JS_GetGlobalObject(ctx);
-	JSValue func = JS_GetPropertyStr(ctx, global, "__HostObject__");
-	JSValue result = JS_Call(ctx, func, JS_UNDEFINED, 1, argv);
+	ContextData* ctxData = (ContextData*)JS_GetContextOpaque(ctx);
+	JSValue result = JS_Call(ctx, ctxData->HostObject, JS_UNDEFINED, 1, argv);
 
-	JS_FreeValue(ctx, global);
-	JS_FreeValue(ctx, func);
 	JS_FreeValue(ctx, argv[0]);
 	return result;
 }
@@ -517,19 +522,20 @@ void eval(uint8_t* bytes, size_t length) {
 	}
 
 	char* code = 
+		"globalThis.__hostObjectId__ = Symbol();\n"
 		"function __HostObject__(id) {\n"
 		"	const object = function () {}\n"
 		"	object.__finalizer__ = new_finalizer(id);\n"
 		"	return new Proxy(object, {\n"
 		"		get(target, prop, receiver) {\n"
-		"			if (prop === '__host_object_id__') return id;\n"
+		"			if (prop === __hostObjectId__) return id;\n"
 		"			return get_prop(id, prop);\n"
 		"		}, \n"
 		"		set(target, prop, value) {\n"
 		"			return set_prop(id, prop, value);\n"
 		"		}, \n"
 		"		apply(target, thisArgs, args) {\n"
-		"			return call_func(id, thisArgs.__host_object_id__, ...args);\n"
+		"			return call_func(id, thisArgs[__hostObjectId__], ...args);\n"
 		"		}, \n"
 		"		construct(target, args) {\n"
 		"			return construct(id, ...args);\n"
@@ -544,12 +550,23 @@ void eval(uint8_t* bytes, size_t length) {
 	}
 
 	JSValue global = JS_GetGlobalObject(ctx);
+
+	ContextData* ctxData = malloc(sizeof(ContextData));
+	ctxData->HostObject = JS_GetPropertyStr(ctx, global, "__HostObject__");
+
+	JSValue hostObjectIdValue = JS_GetPropertyStr(ctx, global, "__hostObjectId__");
+	ctxData->hostObjectId = JS_ValueToAtom(ctx, hostObjectIdValue);
+	JS_FreeValue(ctx, hostObjectIdValue);
+
+	JS_SetContextOpaque(ctx, ctxData);
+
 	JS_SetPropertyStr(ctx, global, "new_finalizer", JS_NewCFunction(ctx, new_finalizer, "new_finalizer", 0));
 	JS_SetPropertyStr(ctx, global, "get_prop", JS_NewCFunction(ctx, get_prop, "get_prop", 0));
 	JS_SetPropertyStr(ctx, global, "set_prop", JS_NewCFunction(ctx, set_prop, "set_prop", 0));
 	JS_SetPropertyStr(ctx, global, "call_func", JS_NewCFunction(ctx, call_func, "call_func", 0));
 	JS_SetPropertyStr(ctx, global, "construct", JS_NewCFunction(ctx, construct, "construct", 0));
 	JS_SetPropertyStr(ctx, global, "window", host_get_window(ctx));
+
 	JS_FreeValue(ctx, global);
 
 	JSValue object = JS_ReadObject(ctx, bytes, length, JS_READ_OBJ_BYTECODE);

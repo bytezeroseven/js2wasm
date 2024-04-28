@@ -160,7 +160,9 @@ function writeCFile(wasm, bytes) {
 		code = code.replace(`"${name}"`, `"${mangled[name]}"`);
 	}
 
-	code = code.replaceAll('__host_object_id__', getRandomName())
+	console.log(mangled);
+
+	code = code.replaceAll('__hostObjectId__', getRandomName())
 		.replaceAll('__finalizer__', getRandomName())
 		.replaceAll('__HostObject__', getRandomName());
 
@@ -169,6 +171,8 @@ function writeCFile(wasm, bytes) {
 		for (const name in mangled) {
 			string = string.replaceAll(' ' + name, ' ' + mangled[name]);
 		}
+
+		console.log(string);
 
 		const bytes = wasm.getBytecode(string);
 		const [mask, maskedBytes] = maskBytes(bytes);

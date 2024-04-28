@@ -1,19 +1,21 @@
 const HostObjectCode = `
 
-function HostObject(id) {
+const __hostObjectId__ = Symbol();
+
+function __HostObject__(id) {
 	const object = function () {}
 	object.__finalizer__ = new_finalizer(id);
 
 	return new Proxy(object, {
 		get(target, prop, receiver) {
-			if (prop === '__host_object_id__') return id;
+			if (prop === __hostObjectId__) return id;
 			return get_prop(id, prop);
 		}, 
 		set(target, prop, value) {
 			return set_prop(id, prop, value);
 		}, 
 		apply(target, thisArgs, args) {
-			return call_func(id, thisArgs.__host_object_id__, ...args);
+			return call_func(id, thisArgs[__hostObjectId__], ...args);
 		}, 
 		construct(target, args) {
 			return construct(id, ...args);
@@ -115,7 +117,8 @@ switch (tag) {
 	case JS_TAG_OBJECT: {
 		if (JS_IsFunction(ctx, value)) {
 
-			JSValue hostIdValue = JS_GetPropertyStr(ctx, value, "__host_object_id__");
+			ContextData* ctxData = (ContextData*)JS_GetContextOpaque(ctx);
+			JSValue hostIdValue = JS_GetProperty(ctx, value, ctxData->hostObjectId);
 			if (JS_IsNumber(hostIdValue)) {
 				
 				int32_t hostId;

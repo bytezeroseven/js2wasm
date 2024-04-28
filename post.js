@@ -1,16 +1,6 @@
 const hostObjects = {};
 const hostObjectMap = new Map();
 
-function finalizeHostObject(id) {
-	const cache = hostObjects[id];
-	_free(cache.ptr);
-	
-	hostObjects[id] = null;
-	hostObjectMap.delete(cache.object);
-
-	availableIds.push(id);
-}
-
 const availableIds = [];
 let nextId = 0;
 

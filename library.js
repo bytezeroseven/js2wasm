@@ -3,7 +3,13 @@ addToLibrary({
 		throw new Error(UTF8ToString(msg));
 	},
 	host_finalize: function (id) {
-		finalizeHostObject(id);
+		const cache = hostObjects[id];
+		_free(cache.ptr);
+		
+		hostObjects[id] = null;
+		hostObjectMap.delete(cache.object);
+
+		availableIds.push(id);
 	}, 
 	host_get_window: function (ctx) {
 		return toJSValue(ctx, globalThis);
