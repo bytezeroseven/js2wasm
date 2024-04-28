@@ -33,7 +33,11 @@ function toJSValue(ctx, value) {
 
 	switch (typeof value) {
 		case 'string':
-			return JS_NewString(ctx, value);
+			const ptr = heapString(value);
+			const result = JS_NewString(ctx, ptr);
+			_free(ptr);
+			return result;
+			break;
 
 		case 'number':
 			return QJS_NewNumber(ctx, value);
@@ -57,7 +61,11 @@ function toJSValuePtr(ctx, value) {
 
 	switch (typeof value) {
 		case 'string':
-			return QJS_NewStringPtr(ctx, value);
+			const ptr = heapString(value);
+			const result = QJS_NewStringPtr(ctx, ptr);
+			_free(ptr);
+			return result;
+			return;
 
 		case 'number':
 			return QJS_NewNumberPtr(ctx, value);
@@ -159,7 +167,7 @@ Module.postRun.push(function () {
 	eval = cwrap('eval', null, ['number', 'number']);
 	/* no_bundle */
 
-	JS_NewString = cwrap('JS_NewString', 'number', ['number', 'string']);
+	JS_NewString = cwrap('JS_NewString', 'number', ['number', 'number']);
 	QJS_NewNumber = cwrap('QJS_NewNumber', 'number', ['number', 'number']);
 	QJS_NewBigInt = cwrap('QJS_NewBigInt', 'number', ['number', 'number']);
 	QJS_NewHostObject = cwrap('QJS_NewHostObject', 'number', ['number', 'number']);
@@ -167,7 +175,7 @@ Module.postRun.push(function () {
 	QJS_FreeValue = cwrap('QJS_FreeValue', null, ['number', 'number']);
 	QJS_DupValue = cwrap('QJS_DupValue', 'number', ['number', 'number']);
 
-	QJS_NewStringPtr = cwrap('QJS_NewStringPtr', 'number', ['number', 'string']);
+	QJS_NewStringPtr = cwrap('QJS_NewStringPtr', 'number', ['number', 'number']);
 	QJS_NewNumberPtr = cwrap('QJS_NewNumberPtr', 'number', ['number', 'number']);
 	QJS_NewBigIntPtr = cwrap('QJS_NewBigIntPtr', 'number', ['number', 'number']);
 	QJS_NewHostObjectPtr = cwrap('QJS_NewHostObjectPtr', 'number', ['number', 'number']);
@@ -175,24 +183,28 @@ Module.postRun.push(function () {
 	QJS_DupValueOnStack = cwrap('QJS_DupValueOnStack', 'number', ['number', 'number']);
 });
 
+function heapString(value) {
+	const size = 1 + lengthBytesUTF8(value);
+	const ptr = _malloc(size);
+	stringToUTF8(value, ptr, size);
+
+	return ptr;
+}
+
 /* no_bundle */
 Module.hostObjects = hostObjects;
 Module.funcMap = funcMap;
 
 Module.getBytecode = function (code) {
-	const codeSize = 1 + lengthBytesUTF8(code);
-	const codePtr = _malloc(codeSize);
-	stringToUTF8(code, codePtr, codeSize);
-
+	const codePtr = heapString(code);
 	const ptr = bytecode(codePtr);
-
 	_free(codePtr);
 
 	const dataPtr = HEAP32[ptr >> 2];
 	const length = HEAP32[(ptr + 4) >> 2];
 	const bytes = new Uint8Array(HEAP8.buffer, dataPtr, length);
 
-	Module._free(ptr);
+	_free(ptr);
 	return bytes;
 }
 
