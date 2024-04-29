@@ -8,6 +8,10 @@ window.console.log(window.person);
 window.console.log(window);
 window.console.log(window.console === window.console);
 
+window.useThis = function () {
+	window.console.log(this.console);
+}
+
 `;
 
 Module().then(wasm => {
@@ -19,6 +23,10 @@ Module().then(wasm => {
 
 	console.log('>>> BYTECODE >>>\n', bytes);
 	console.log('>>> RESULT >>>\n', wasm.eval(bytes));
+
+	globalThis.useThis();
+
+	console.log('Host objects length:', wasm.hostObjects);
 }).catch(error => {
 	console.log(error);
 });

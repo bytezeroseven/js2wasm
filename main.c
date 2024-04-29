@@ -422,13 +422,13 @@ JSValue* QJS_NewHostObjectPtr(JSContext* ctx, int32_t id) {
 	return jsvalue_to_heap(v);
 }
 
-void QJS_Call(JSContext* ctx, JSValueConst* func, int argc, JSValue** argv_ptrs) {
+void QJS_Call(JSContext* ctx, JSValueConst* func, JSValue* jsThis, int argc, JSValue** argv_ptrs) {
 	JSValueConst argv[argc];
 	for (int i = 0; i < argc; i++) {
 		argv[i] = JS_DupValue(ctx, *argv_ptrs[i]);
 	}
 
-	JSValue value = JS_Call(ctx, *func, JS_UNDEFINED, argc, argv);
+	JSValue value = JS_Call(ctx, *func, *jsThis, argc, argv);
 	host_set_return(ctx, value);
 	JS_FreeValue(ctx, value);
 

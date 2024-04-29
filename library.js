@@ -6,7 +6,7 @@ addToLibrary({
 		const cache = hostObjects[id];
 		_free(cache.ptr);
 		
-		hostObjects[id] = null;
+		delete hostObjects[id];
 		hostObjectMap.delete(cache.object);
 
 		availableIds.push(id);

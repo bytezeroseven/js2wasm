@@ -106,7 +106,7 @@ function getFunction(ctx, funcPtr) {
 		const heapBytes = new Uint8Array(Module.HEAP8.buffer, argvPtr, numBytes);
 		heapBytes.set(new Uint8Array(typedArray.buffer));
 
-		QJS_Call(ctx, funcDupPtr, ptrs.length, argvPtr);
+		QJS_Call(ctx, funcDupPtr, hostObjectToPtr(ctx, this), ptrs.length, argvPtr);
 
 		return getReturnValue();
 	}
