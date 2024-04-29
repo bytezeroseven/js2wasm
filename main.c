@@ -428,10 +428,14 @@ void QJS_Call(JSContext* ctx, JSValueConst* func, JSValue* jsThis, int argc, JSV
 		argv[i] = JS_DupValue(ctx, *argv_ptrs[i]);
 	}
 
-	JSValue value = JS_Call(ctx, *func, *jsThis, argc, argv);
+	JSValue jsThisValue = JS_DupValue(ctx, *jsThis);
+
+	JSValue value = JS_Call(ctx, *func, jsThisValue, argc, argv);
 	host_set_return(ctx, value);
 	JS_FreeValue(ctx, value);
 
+	JS_FreeValue(ctx, jsThisValue);
+	
 	for (int i = 0; i < argc; i++) {
 		JS_FreeValue(ctx, argv[i]);
 	}
