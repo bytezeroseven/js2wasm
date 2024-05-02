@@ -1,26 +1,29 @@
 const HostObjectCode = `
 
-const __hostObjectId__ = Symbol();
+globalThis.__hostObjectId__ = Symbol();
+const __finalizer__ = Symbol();
+
+const config = {
+	get(target, prop, receiver) {
+		if (prop === __hostObjectId__) return target[__hostObjectId__];
+		return get_prop(target[__hostObjectId__], prop);
+	}, 
+	set(target, prop, value) {
+		return set_prop(target[__hostObjectId__], prop, value);
+	}, 
+	apply(target, thisArgs, args) {
+		return call_func(target[__hostObjectId__], thisArgs[__hostObjectId__], ...args);
+	}, 
+	construct(target, args) {
+		return construct(target[__hostObjectId__], ...args);
+	}
+};
 
 function __HostObject__(id) {
 	const object = function () {}
-	object.__finalizer__ = new_finalizer(id);
-
-	return new Proxy(object, {
-		get(target, prop, receiver) {
-			if (prop === __hostObjectId__) return id;
-			return get_prop(id, prop);
-		}, 
-		set(target, prop, value) {
-			return set_prop(id, prop, value);
-		}, 
-		apply(target, thisArgs, args) {
-			return call_func(id, thisArgs[__hostObjectId__], ...args);
-		}, 
-		construct(target, args) {
-			return construct(id, ...args);
-		}
-	});
+	object[__finalizer__] = new_finalizer(id);
+	object[__hostObjectId__] = id;
+	return new Proxy(object, config);
 }
 
 `;
