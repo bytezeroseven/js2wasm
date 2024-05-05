@@ -422,6 +422,10 @@ JSValue* QJS_NewHostObjectPtr(JSContext* ctx, int32_t id) {
 	return jsvalue_to_heap(v);
 }
 
+JSValue* QJS_NewArrayBufferCopyPtr(JSContext* ctx, uint8_t* bytes, size_t length) {
+	return jsvalue_to_heap(JS_NewArrayBufferCopy(ctx, bytes, length));
+}
+
 void QJS_Call(JSContext* ctx, JSValueConst* func, JSValue* jsThis, int argc, JSValue** argv_ptrs) {
 	JSValueConst argv[argc];
 	for (int i = 0; i < argc; i++) {

@@ -37,6 +37,13 @@ function toJSValue(ctx, value) {
 
 		case 'object':
 		case 'function':
+			if (value instanceof ArrayBuffer) {
+				const dataPtr = _malloc(value.byteLength);
+				writeArrayToMemory(new Uint8Array(value), dataPtr);
+				const bufferPtr = JS_NewArrayBufferCopy(ctx, dataPtr, value.byteLength);
+				_free(dataPtr);
+				return bufferPtr;
+			}
 			return QJS_DupValueOnStack(ctx, hostObjectToPtr(ctx, value));
 
 		case 'bigint':
@@ -65,6 +72,13 @@ function toJSValuePtr(ctx, value) {
 
 		case 'object':
 		case 'function':
+			if (value instanceof ArrayBuffer) {
+				const dataPtr = _malloc(value.byteLength);
+				writeArrayToMemory(new Uint8Array(value), dataPtr);
+				const bufferPtr = QJS_NewArrayBufferCopyPtr(ctx, dataPtr, value.byteLength);
+				_free(dataPtr);
+				return bufferPtr;
+			}
 			return hostObjectToPtr(ctx, value);
 
 		case 'bigint':
@@ -140,15 +154,18 @@ let JS_NewString,
 	QJS_NewBigInt, 
 	QJS_NewNumber, 
 	QJS_NewHostObject,
-	QJS_Call, 
+	JS_NewArrayBufferCopy;
+
+let	QJS_Call, 
 	QJS_FreeValue, 
-	QJS_DupValue;
+	QJS_DupValue, 
+	QJS_DupValueOnStack;
 
 let QJS_NewStringPtr, 
 	QJS_NewNumberPtr,
 	QJS_NewBigIntPtr,
 	QJS_NewHostObjectPtr, 
-	QJS_DupValueOnStack;
+	QJS_NewArrayBufferCopyPtr;
 
 Module.postRun = Module.postRun || [];
 Module.postRun.push(function () {
@@ -158,9 +175,11 @@ Module.postRun.push(function () {
 	/* no_bundle */
 
 	JS_NewString = cwrap('JS_NewString', 'number', ['number', 'number']);
+	JS_NewArrayBufferCopy = cwrap('JS_NewArrayBufferCopy', 'number', ['number', 'number', 'number']);
 	QJS_NewNumber = cwrap('QJS_NewNumber', 'number', ['number', 'number']);
 	QJS_NewBigInt = cwrap('QJS_NewBigInt', 'number', ['number', 'number']);
 	QJS_NewHostObject = cwrap('QJS_NewHostObject', 'number', ['number', 'number']);
+
 	QJS_Call = cwrap('QJS_Call', null, ['number', 'number']);
 	QJS_FreeValue = cwrap('QJS_FreeValue', null, ['number', 'number']);
 	QJS_DupValue = cwrap('QJS_DupValue', 'number', ['number', 'number']);
@@ -169,6 +188,7 @@ Module.postRun.push(function () {
 	QJS_NewNumberPtr = cwrap('QJS_NewNumberPtr', 'number', ['number', 'number']);
 	QJS_NewBigIntPtr = cwrap('QJS_NewBigIntPtr', 'number', ['number', 'number']);
 	QJS_NewHostObjectPtr = cwrap('QJS_NewHostObjectPtr', 'number', ['number', 'number']);
+	QJS_NewArrayBufferCopyPtr = cwrap('QJS_NewArrayBufferCopyPtr', 'number', ['number', 'number', 'number']);
 
 	QJS_DupValueOnStack = cwrap('QJS_DupValueOnStack', 'number', ['number', 'number']);
 });
