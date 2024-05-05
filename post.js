@@ -27,7 +27,6 @@ function toJSValue(ctx, value) {
 			const result = JS_NewString(ctx, ptr);
 			_free(ptr);
 			return result;
-			break;
 
 		case 'number':
 			return QJS_NewNumber(ctx, value);
@@ -44,8 +43,9 @@ function toJSValue(ctx, value) {
 				_free(dataPtr);
 				return bufferPtr;
 			}
-			return QJS_DupValueOnStack(ctx, hostObjectToPtr(ctx, value));
 
+			return QJS_DupValue(ctx, hostObjectToPtr(ctx, value));
+			
 		case 'bigint':
 			return QJS_NewBigInt(ctx, Number(value));
 	}
@@ -93,6 +93,7 @@ const funcMap = new Map();
 const registry = new FinalizationRegistry(id => {
 	const entry = funcMap.get(id);
 	QJS_FreeValue(entry.ctx, entry.ptr);
+	_free(entry.ptr);
 	funcMap.delete(id);
 });
 
@@ -105,7 +106,7 @@ function getFunction(ctx, funcPtr) {
 		return cache.ref.deref();
 	}
 
-	const funcDupPtr = QJS_DupValue(ctx, funcPtr);
+	QJS_DupValue(ctx, funcPtr);
 	
 	const invoker = function () {
 		const ptrs = [];
@@ -120,14 +121,14 @@ function getFunction(ctx, funcPtr) {
 		const heapBytes = new Uint8Array(Module.HEAP8.buffer, argvPtr, numBytes);
 		heapBytes.set(new Uint8Array(typedArray.buffer));
 
-		QJS_Call(ctx, funcDupPtr, hostObjectToPtr(ctx, this), ptrs.length, argvPtr);
+		QJS_Call(ctx, funcPtr, hostObjectToPtr(ctx, this), ptrs.length, argvPtr);
 
 		return getReturnValue();
 	}
 
 	funcMap.set(func, {
 		ref: new WeakRef(invoker), 
-		ptr: funcDupPtr, 
+		ptr: funcPtr, 
 		ctx
 	});
 
@@ -158,8 +159,7 @@ let JS_NewString,
 
 let	QJS_Call, 
 	QJS_FreeValue, 
-	QJS_DupValue, 
-	QJS_DupValueOnStack;
+	QJS_DupValue;
 
 let QJS_NewStringPtr, 
 	QJS_NewNumberPtr,
@@ -189,8 +189,6 @@ Module.postRun.push(function () {
 	QJS_NewBigIntPtr = cwrap('QJS_NewBigIntPtr', 'number', ['number', 'number']);
 	QJS_NewHostObjectPtr = cwrap('QJS_NewHostObjectPtr', 'number', ['number', 'number']);
 	QJS_NewArrayBufferCopyPtr = cwrap('QJS_NewArrayBufferCopyPtr', 'number', ['number', 'number', 'number']);
-
-	QJS_DupValueOnStack = cwrap('QJS_DupValueOnStack', 'number', ['number', 'number']);
 });
 
 function heapString(value) {

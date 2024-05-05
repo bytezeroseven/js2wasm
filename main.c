@@ -431,7 +431,6 @@ void QJS_Call(JSContext* ctx, JSValueConst* func, JSValue* jsThis, int argc, JSV
 	for (int i = 0; i < argc; i++) {
 		argv[i] = JS_DupValue(ctx, *argv_ptrs[i]);
 	}
-
 	JSValue jsThisValue = JS_DupValue(ctx, *jsThis);
 
 	JSValue value = JS_Call(ctx, *func, jsThisValue, argc, argv);
@@ -439,7 +438,6 @@ void QJS_Call(JSContext* ctx, JSValueConst* func, JSValue* jsThis, int argc, JSV
 	JS_FreeValue(ctx, value);
 
 	JS_FreeValue(ctx, jsThisValue);
-	
 	for (int i = 0; i < argc; i++) {
 		JS_FreeValue(ctx, argv[i]);
 	}
@@ -450,11 +448,7 @@ void QJS_FreeValue(JSContext* ctx, JSValue* value) {
 	JS_FreeValue(ctx, *value);
 }
 
-JSValue* QJS_DupValue(JSContext* ctx, JSValue* value) {
-	return jsvalue_to_heap(JS_DupValue(ctx, *value));
-}
-
-JSValue QJS_DupValueOnStack(JSContext* ctx, JSValue* value) {
+JSValue QJS_DupValue(JSContext* ctx, JSValue* value) {
 	return JS_DupValue(ctx, *value);
 }
 
