@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "./quickjs/quickjs.h"
+#include "./quickjs/quickjs-atom.h"
 
 extern void host_throw_error(char* msg);
 extern void host_finalize(int32_t id);
@@ -49,6 +50,7 @@ extern JSValue host_construct(JSContext* ctx, int32_t cls);
 typedef struct {
 	JSValue HostObject;
 	JSAtom hostObjectId;
+	JSAtom lengthAtom
 } ContextData;
 
 JSValue* jsvalue_to_heap(JSValue value) {
@@ -174,11 +176,15 @@ JSValue set_prop(JSContext* ctx, JSValueConst jsThis, int argc, JSValueConst* ar
 	return JS_TRUE;
 }
 
-void host_set_args(JSValue* ctx, int offset, int argc, JSValueConst* argv) {
-	for (int i = offset; i < argc; i++) {
-		JSValue value = argv[i];
+void host_set_args(JSValue* ctx, JSValueConst array) {
+	int32_t length;
+	JSValue lengthValue = JS_GetProperty(ctx, array, ((ContextData*)JS_GetContextOpaque(ctx))->lengthAtom);
+	JS_ToInt32(ctx, &length, lengthValue);
+	JS_FreeValue(ctx, lengthValue);
 
-		
+	for (int i = 0; i < length; i++) {
+		JSValue value = JS_GetPropertyUint32(ctx, array, i);
+
 		uint32_t tag = JS_VALUE_GET_NORM_TAG(value);
 
 		switch (tag) {
@@ -262,6 +268,8 @@ void host_set_args(JSValue* ctx, int offset, int argc, JSValueConst* argv) {
 			default:
 				host_set_arg_undefined();
 		}
+
+		JS_FreeValue(ctx, value);
 	}
 }
 
@@ -272,7 +280,7 @@ JSValue call_func(JSContext* ctx, JSValueConst jsThis, int argc, JSValueConst* a
 	int32_t thisId;
 	JS_ToInt32(ctx, &thisId, argv[1]);
 
-	host_set_args(ctx, 2, argc, argv);
+	host_set_args(ctx, argv[2]);
 
 	return host_call_func(ctx, funcId, thisId);
 }
@@ -281,7 +289,7 @@ JSValue construct(JSContext* ctx, JSValueConst jsThis, int argc, JSValueConst* a
 	int32_t funcId;
 	JS_ToInt32(ctx, &funcId, argv[0]);
 
-	host_set_args(ctx, 1, argc, argv);
+	host_set_args(ctx, argv[1]);
 
 	return host_construct(ctx, funcId);
 }
@@ -535,10 +543,10 @@ void eval(uint8_t* bytes, size_t length) {
 		"		return set_prop(target[__hostObjectId__], prop, value);\n"
 		"	}, \n"
 		"	apply(target, thisArgs, args) {\n"
-		"		return call_func(target[__hostObjectId__], thisArgs[__hostObjectId__], ...args);\n"
+		"		return call_func(target[__hostObjectId__], thisArgs[__hostObjectId__], args);\n"
 		"	}, \n"
 		"	construct(target, args) {\n"
-		"		return construct(target[__hostObjectId__], ...args);\n"
+		"		return construct(target[__hostObjectId__], args);\n"
 		"	}\n"
 		"};\n"
 		"function __HostObject__(id) {\n"
@@ -558,6 +566,7 @@ void eval(uint8_t* bytes, size_t length) {
 
 	ContextData* ctxData = malloc(sizeof(ContextData));
 	ctxData->HostObject = JS_GetPropertyStr(ctx, global, "__HostObject__");
+	ctxData->lengthAtom = JS_NewAtom(ctx, "length");
 
 	JSValue hostObjectIdValue = JS_GetPropertyStr(ctx, global, "__hostObjectId__");
 	ctxData->hostObjectId = JS_ValueToAtom(ctx, hostObjectIdValue);
