@@ -1,4 +1,4 @@
-const props = [];
+let props = [];
 
 const hostObjects = {};
 const hostObjectMap = new Map();

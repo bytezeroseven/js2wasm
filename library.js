@@ -132,6 +132,9 @@ addToLibrary({
 		returnValue = getFunction(ctx, func);
 	},
 
+	host_set_prop_list: function (json) {
+		props = JSON.parse(UTF8ToString(json));
+	},
 	host_call_func_by_id: function (ctx, object, prop) {
 		object = hostObjects[object].object;
 		const value = object[props[prop]].apply(object, args);

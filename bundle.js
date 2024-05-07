@@ -48,8 +48,8 @@ module.exports = async function bundle(options) {
 		const bytes = wasm.getBytecode(code);
 		console.log(`bytecode length: ${bytes.length}`);
 
-		writeCFile(wasm, bytes, nameMap);
-		writeJsFile(props);
+		writeCFile(wasm, bytes, nameMap, props);
+		writeJsFile();
 
 		runCmd(getBuildCmd(options.output), function () {
 			deleteFile('temp-main.c');
@@ -151,7 +151,7 @@ async function minifyJs(code, options) {
 	return result.code;
 }
 
-function writeCFile(wasm, bytes, mangled) {
+function writeCFile(wasm, bytes, mangled, props) {
 	let code = readFile('main.c');
 
 	code = code.replace(/(JS_NewCFunction\([^,]+,[^,]+,\s+)"([^",]+)"/g, function(match, before, name) {
@@ -203,19 +203,45 @@ function writeCFile(wasm, bytes, mangled) {
 
 	const [mask, maskedBytes] = maskBytes(bytes);
 
+	let propCode = '';
+
+	if (props) {
+		const propBytes = new TextEncoder().encode(JSON.stringify(props));
+		for (let i = 0;i < propBytes.length; i++) {
+			propBytes[i] ^= mask[i % mask.length];
+		}
+
+		code = code + `
+
+		uint8_t maskedPropBytes[] = {${propBytes.toString()}};
+
+		`;
+
+		propCode = `
+		uint8_t* unmaskedPropBytes = malloc(sizeof(uint8_t) * ${propBytes.length});
+		for (int i = 0; i < ${propBytes.length}; i++) {
+			unmaskedPropBytes[i] = maskedPropBytes[i] ^ mask[i % ${mask.length}];
+		}
+
+		host_set_prop_list(unmaskedPropBytes);
+		free(unmaskedPropBytes);
+		`;
+	}
+
 	code = code + `
 
 	uint8_t maskedBytes[] = {${maskedBytes.toString()}};
 	uint8_t mask[] = {${mask.toString()}};
 
 	void run() {
+		${propCode}
+
 		uint8_t* unmaskedBytes = malloc(sizeof(uint8_t) * ${bytes.length});
 		for (int i = 0; i < ${bytes.length}; i++) {
 			unmaskedBytes[i] = maskedBytes[i] ^ mask[i % ${mask.length}];
 		}
 
 		eval(unmaskedBytes, ${bytes.length});
-
 		free(unmaskedBytes);
 	}
 
@@ -231,12 +257,9 @@ function maskBytes(bytes) {
 	return [mask, maskedBytes];
 }
 
-function writeJsFile(props) {
+function writeJsFile() {
 	let code = readFile('./post.js');
 	code = code.replace(/\/\* no_bundle \*\/[\s\S]*?\/\* no_bundle \*\//g, '');
-	if (props) {
-		code = code.replace(`const props = [];`, `const props = ${JSON.stringify(props)};`);
-	}
 
 	writeFile('temp-post.js', code);
 }
