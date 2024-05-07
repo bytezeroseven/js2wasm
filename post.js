@@ -1,3 +1,5 @@
+const props = [];
+
 const hostObjects = {};
 const hostObjectMap = new Map();
 

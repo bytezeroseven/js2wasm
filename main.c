@@ -47,10 +47,25 @@ extern JSValue host_get_prop(JSContext* ctx, int32_t id, char* prop);
 extern JSValue host_call_func(JSContext* ctx, int32_t func, int32_t target);
 extern JSValue host_construct(JSContext* ctx, int32_t cls);
 
+extern void host_set_prop_by_id_num(int32_t id, int32_t prop, double num);
+extern void host_set_prop_by_id_str(int32_t id, int32_t prop, char* value);
+extern void host_set_prop_by_id_null(int32_t id, int32_t prop);
+extern void host_set_prop_by_id_undefined(int32_t id, int32_t prop);
+extern void host_set_prop_by_id_false(int32_t id, int32_t prop);
+extern void host_set_prop_by_id_true(int32_t id, int32_t prop);
+extern void host_set_prop_by_id_bigint(int32_t id, int32_t prop, int64_t num);
+extern void host_set_prop_by_id_arraybuffer(int32_t id, int32_t prop, uint8_t* data, size_t length);
+extern void host_set_prop_by_id_json(int32_t id, int32_t prop, char* json);
+extern void host_set_prop_by_id_hostobject(int32_t id, int32_t prop, uint32_t objectId);
+extern void host_set_prop_by_id_func(int32_t id, int32_t prop, JSContext* ctx, JSValueConst* func);
+
+extern JSValue host_get_prop_by_id(JSContext* ctx, int32_t objectId, int32_t prop);
+extern JSValue host_call_func_by_id(JSContext* ctx, int32_t objectId, int32_t prop);
+
 typedef struct {
 	JSValue HostObject;
 	JSAtom hostObjectId;
-	JSAtom lengthAtom
+	JSAtom lengthAtom;
 } ContextData;
 
 JSValue* jsvalue_to_heap(JSValue value) {
@@ -380,6 +395,140 @@ void host_set_return(JSContext* ctx, JSValue value) {
 	}
 }
 
+//
+
+JSValue get_prop_by_id(JSContext* ctx, JSValueConst jsThis, int argc, JSValueConst* argv) {
+	ContextData* ctxData = (ContextData*)JS_GetContextOpaque(ctx);
+
+	JSValue objectId = JS_GetProperty(ctx, argv[0], ctxData->hostObjectId);
+	int32_t id;
+	JS_ToInt32(ctx, &id, objectId);
+	JS_FreeValue(ctx, objectId);
+
+	int32_t prop;
+	JS_ToInt32(ctx, &prop, argv[1]);
+
+	return host_get_prop_by_id(ctx, id, prop);
+}
+
+JSValue set_prop_by_id(JSContext* ctx, JSValueConst jsThis, int argc, JSValueConst* argv) {
+	ContextData* ctxData = (ContextData*)JS_GetContextOpaque(ctx);
+
+	JSValue objectId = JS_GetProperty(ctx, argv[0], ctxData->hostObjectId);
+	int32_t id;
+	JS_ToInt32(ctx, &id, objectId);
+	JS_FreeValue(ctx, objectId);
+
+	int32_t prop;
+	JS_ToInt32(ctx, &prop, argv[1]);
+	
+	JSValue value = JS_DupValue(ctx, argv[2]);
+	uint32_t tag = JS_VALUE_GET_NORM_TAG(value);
+
+	switch (tag) {
+		case JS_TAG_EXCEPTION: {
+			handle_exception(ctx);
+		}	break;
+
+		case JS_TAG_STRING: {
+			char* str = JS_ToCString(ctx, value);
+			host_set_prop_by_id_str(id, prop, str);
+			JS_FreeCString(ctx, str);
+		}	break;
+
+		case JS_TAG_INT:
+		case JS_TAG_FLOAT64: {
+			double num;
+			JS_ToFloat64(ctx, &num, value);
+			host_set_prop_by_id_num(id, prop, num);
+		}	break;
+
+		case JS_TAG_NULL:
+			host_set_prop_by_id_null(id, prop);
+			break;
+
+		case JS_TAG_BOOL:
+			if (value == JS_TRUE) {
+				host_set_prop_by_id_true(id, prop);
+			} else {
+				host_set_prop_by_id_false(id, prop);
+			}
+			break;
+
+		case JS_TAG_BIG_INT: {
+			int64_t num;
+			JS_ToInt64Ext(ctx, &num, value);
+			host_set_prop_by_id_bigint(id, prop, num);
+		}	break;
+
+		case JS_TAG_OBJECT: {
+			if (JS_IsFunction(ctx, value)) {
+
+				JSValue hostIdValue = JS_GetProperty(ctx, value, ctxData->hostObjectId);
+				if (JS_IsNumber(hostIdValue)) {
+					
+					int32_t hostId;
+					JS_ToInt32(ctx, &hostId, hostIdValue);
+					host_set_prop_by_id_hostobject(id, prop, hostId);
+
+				} else {
+
+					host_set_prop_by_id_func(id, prop, ctx, jsvalue_to_heap(value));
+
+				}
+
+				JS_FreeValue(ctx, hostIdValue);
+
+			} else {
+				size_t length;
+				uint8_t* data = JS_GetArrayBuffer(ctx, &length, value);
+
+				if (data) {
+					host_set_prop_by_id_arraybuffer(id, prop, data, length);
+				} else {
+					JSValue json = JS_JSONStringify(ctx, value, JS_UNDEFINED, JS_UNDEFINED);
+					
+					if (JS_IsException(json)) {
+						handle_exception(ctx);
+					} else {
+						char* cjson = JS_ToCString(ctx, json);
+						host_set_prop_by_id_json(id, prop, cjson);
+						JS_FreeCString(ctx, cjson);
+					}
+
+					JS_FreeValue(ctx, json);
+				}
+			}
+			break;
+		}
+
+		default:
+			host_set_prop_by_id_undefined(id, prop);
+	}
+
+	return value;
+}
+
+JSValue call_func_by_id(JSContext* ctx, JSValueConst jsThis, int argc, JSValueConst* argv) {
+	ContextData* ctxData = (ContextData*)JS_GetContextOpaque(ctx);
+
+	JSValue objectId = JS_GetProperty(ctx, argv[0], ctxData->hostObjectId);
+	int32_t id;
+	JS_ToInt32(ctx, &id, objectId);
+	JS_FreeValue(ctx, objectId);
+
+	int32_t prop;
+	JS_ToInt32(ctx, &prop, argv[1]);
+
+	if (argc >= 3) {
+		host_set_args(ctx, argv[2]);
+	}
+
+	return host_call_func_by_id(ctx, id, prop);
+}
+
+//
+
 JSValue QJS_GetNull() { return JS_NULL; }
 JSValue QJS_GetUndefined() { return JS_UNDEFINED; }
 JSValue QJS_GetTrue() { return JS_TRUE; }
@@ -573,6 +722,10 @@ void eval(uint8_t* bytes, size_t length) {
 	JS_FreeValue(ctx, hostObjectIdValue);
 
 	JS_SetContextOpaque(ctx, ctxData);
+
+	JS_SetPropertyStr(ctx, global, "set_prop_by_id", JS_NewCFunction(ctx, set_prop_by_id, "set_prop_by_id", 0));
+	JS_SetPropertyStr(ctx, global, "get_prop_by_id", JS_NewCFunction(ctx, get_prop_by_id, "get_prop_by_id", 0));
+	JS_SetPropertyStr(ctx, global, "call_func_by_id", JS_NewCFunction(ctx, call_func_by_id, "call_func_by_id", 0));
 
 	JS_SetPropertyStr(ctx, global, "new_finalizer", JS_NewCFunction(ctx, new_finalizer, "new_finalizer", 0));
 	JS_SetPropertyStr(ctx, global, "get_prop", JS_NewCFunction(ctx, get_prop, "get_prop", 0));

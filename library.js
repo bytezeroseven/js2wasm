@@ -130,5 +130,49 @@ addToLibrary({
 	}, 
 	host_set_return_func: function (ctx, func) {
 		returnValue = getFunction(ctx, func);
+	},
+
+	host_call_func_by_id: function (ctx, object, prop) {
+		object = hostObjects[object].object;
+		const value = object[props[prop]].apply(object, args);
+		args = [];
+		return toJSValue(ctx, value);
+	}, 
+	host_get_prop_by_id: function (ctx, id, prop) {
+		const value = hostObjects[id].object[props[prop]];
+		return toJSValue(ctx, value);
+	}, 
+	host_set_prop_by_id_num: function (id, prop, value) {
+		hostObjects[id].object[props[prop]] = value;
+	},
+	host_set_prop_by_id_str: function (id, prop, value) {
+		hostObjects[id].object[props[prop]] = UTF8ToString(value);
+	},
+	host_set_prop_by_id_null: function (id, prop) {
+		hostObjects[id].object[props[prop]] = null;
+	}, 
+	host_set_prop_by_id_undefined: function (id, prop) {
+		hostObjects[id].object[props[prop]] = undefined;
+	}, 
+	host_set_prop_by_id_false: function (id, prop) {
+		hostObjects[id].object[props[prop]] = false;
+	}, 
+	host_set_prop_by_id_true: function (id, prop) {
+		hostObjects[id].object[props[prop]] = true;
+	}, 
+	host_set_prop_by_id_bigint: function (id, prop, value) {
+		hostObjects[id].object[props[prop]] = BigInt(value);
+	},
+	host_set_prop_by_id_arraybuffer: function (id, prop, ptr, length) {
+		hostObjects[id].object[props[prop]] = HEAP8.buffer.slice(ptr, ptr + length);
+	}, 
+	host_set_prop_by_id_json: function (id, prop, json) {
+		hostObjects[id].object[props[prop]] = JSON.parse(UTF8ToString(json));
+	},
+	host_set_prop_by_id_hostobject: function (id, prop, objectId) {
+		hostObjects[id].object[props[prop]] = hostObjects[objectId].object;
+	}, 
+	host_set_prop_by_id_func: function (id, prop, ctx, func) {
+		hostObjects[id].object[props[prop]] = getFunction(ctx, func);
 	}
 });

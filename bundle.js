@@ -1,73 +1,38 @@
 const fs = require('fs');
-const { minify } = require('terser');
 const exec = require('child_process').exec;
 const path = require('path');
 
-const input = process.argv[2];
-const output = process.argv[3];
+const { minify } = require('terser');
+const transform = require('./transform.js');
 
-if (!input || !output) {
-	const isNpx = process.argv[1].endsWith('bin.js');
-	console.log(`Missing arguments.\nUsage: ${isNpx ? `npx js2wasm` : `node bundle.js`} [input_js_file] [output_js_file]`);
-	process.exit(0);
-}
+module.exports = async function bundle(options) {
+	let code = fs.readFileSync(options.input, 'utf8');
 
-const outputDir = path.dirname(output);
-if (!fs.existsSync(outputDir)) {
-	fs.mkdirSync(outputDir, {
-		recursive: true
-	});
-}
+	const nameMap = {
+		call_func_by_id: getRandomName(), 
+		set_prop_by_id: getRandomName(), 
+		get_prop_by_id: getRandomName()
+	};
 
-main();
+	let props;
+	if (options.varRegex || options.propRegex) {
+		const result = transform(code, options.varRegex, options.propRegex, nameMap);
+		code = result.code;
+		props = result.props;
+	}
 
-async function main() {
-	let code = fs.readFileSync(input, 'utf8');
-	code = await minifyJs(code, {
-		mangle: {
-			toplevel: true
-		}
-	});
+	if (options.terserConfig) {
+		code = await minifyJs(code, options.terserConfig);
+	}
 
-	let qjsCode = readFile('quickjs/quickjs.c');
+	const outputDir = path.dirname(options.output);
+	if (!fs.existsSync(outputDir)) {
+		fs.mkdirSync(outputDir, {
+			recursive: true
+		});
+	}
 
-	const ids = [];
-	qjsCode = qjsCode.replace(/BC_TAG_([\w_=\d]+),/g, match => {
-		let id;
-		while (true) {
-			id = 1 + Math.floor(Math.random() * 254);
-			if (ids.indexOf(id) === -1) {
-				ids.push(id);
-				break;
-			}
-		}
-
-		return match.slice(0, -1) + ' = ' + id + ',';
-	});
-
-	const mask8 = getBitmask(8);
-	const mask16 = getBitmask(16);
-
-	qjsCode = qjsCode.replace(`dbuf_put(&s->dbuf, p->u.str8, p->len);`, `
-		for(i = 0; i < p->len; i++) {
-			dbuf_putc(&s->dbuf, p->u.str8[i] ^ ${mask8});
-		}
-	`).replace(`p->u.str8[size] = '\\0';`, `
-		for (uint32_t i = 0; i < len; i++) {
-			p->u.str8[i] ^= ${mask8};
-		}
-		p->u.str8[size] = '\\0';
-	`);
-
-	qjsCode = qjsCode.replace(`bc_put_u16(s, p->u.str16[i]);`, `
-		bc_put_u16(s, p->u.str16[i] ^ ${mask16});
-	`).replace(`if (is_be()) {`, `
-		for (uint32_t i = 0; i < len; i++)
-		    p->u.str16[i] ^= ${mask16};
-		if (is_be()) {
-	`);
-
-	writeFile('quickjs/temp-quickjs.c', qjsCode);
+	writeQuickJsFile();
 
 	const buildWasmCmd = getRawCmd()
 		.replace('quickjs.c', 'temp-quickjs.c')
@@ -83,15 +48,57 @@ async function main() {
 		const bytes = wasm.getBytecode(code);
 		console.log(`bytecode length: ${bytes.length}`);
 
-		writeCFile(wasm, bytes);
-		writeJsFile();
+		writeCFile(wasm, bytes, nameMap);
+		writeJsFile(props);
 
-		runCmd(getBuildCmd(), function () {
+		runCmd(getBuildCmd(options.output), function () {
 			deleteFile('temp-main.c');
 			deleteFile('temp-post.js');
 			deleteFile('quickjs/temp-quickjs.c');
-		}, afterBuild);
+		}, () => afterBuild(options.output));
 	});
+}
+
+function writeQuickJsFile() {
+	let code = readFile('quickjs/quickjs.c');
+
+	const ids = [];
+	code = code.replace(/BC_TAG_([\w_=\d]+),/g, match => {
+		let id;
+		while (true) {
+			id = 1 + Math.floor(Math.random() * 254);
+			if (ids.indexOf(id) === -1) {
+				ids.push(id);
+				break;
+			}
+		}
+
+		return match.slice(0, -1) + ' = ' + id + ',';
+	});
+
+	const mask8 = getBitmask(8);
+	const mask16 = getBitmask(16);
+
+	code = code.replace(`dbuf_put(&s->dbuf, p->u.str8, p->len);`, `
+		for(i = 0; i < p->len; i++) {
+			dbuf_putc(&s->dbuf, p->u.str8[i] ^ ${mask8});
+		}
+	`).replace(`p->u.str8[size] = '\\0';`, `
+		for (uint32_t i = 0; i < len; i++) {
+			p->u.str8[i] ^= ${mask8};
+		}
+		p->u.str8[size] = '\\0';
+	`);
+
+	code = code.replace(`bc_put_u16(s, p->u.str16[i]);`, `
+		bc_put_u16(s, p->u.str16[i] ^ ${mask16});
+	`).replace(`if (is_be()) {`, `
+		for (uint32_t i = 0; i < len; i++)
+		    p->u.str16[i] ^= ${mask16};
+		if (is_be()) {
+	`);
+
+	writeFile('quickjs/temp-quickjs.c', code);
 }
 
 function runCmd(cmd, onFinish, onSuccess) {
@@ -109,14 +116,14 @@ function runCmd(cmd, onFinish, onSuccess) {
 	});
 }
 
-async function afterBuild() {
+async function afterBuild(output) {
 	let code = fs.readFileSync(output, 'utf8');
 
 	const mangled = {};
 	let i = 0;
 
 	code = code.replace(/Module\["_([^\"]+)"\]/g, (match, name) => {
-		if (mangled[name] === undefined) {
+		if (!(name in mangled)) {
 			mangled[name] = i++;
 		}
 		return `Module["_${mangled[name]}"]`;
@@ -144,15 +151,13 @@ async function minifyJs(code, options) {
 	return result.code;
 }
 
-function writeCFile(wasm, bytes) {
+function writeCFile(wasm, bytes, mangled) {
 	let code = readFile('main.c');
 
-	const mangled = {};
 	code = code.replace(/(JS_NewCFunction\([^,]+,[^,]+,\s+)"([^",]+)"/g, function(match, before, name) {
-		if (!mangled[name]) {
+		if (!(name in mangled)) {
 			mangled[name] = getRandomName();
 		}
-
 		return before + `"${mangled[name]}"`;
 	});
 
@@ -226,14 +231,17 @@ function maskBytes(bytes) {
 	return [mask, maskedBytes];
 }
 
-function writeJsFile() {
+function writeJsFile(props) {
 	let code = readFile('./post.js');
 	code = code.replace(/\/\* no_bundle \*\/[\s\S]*?\/\* no_bundle \*\//g, '');
+	if (props) {
+		code = code.replace(`const props = [];`, `const props = ${JSON.stringify(props)};`);
+	}
 
 	writeFile('temp-post.js', code);
 }
 
-function getBuildCmd() {
+function getBuildCmd(output) {
 	const cmd = getRawCmd();
 
 	const regex = /EXPORTED_FUNCTIONS="([^"]+)"/;
