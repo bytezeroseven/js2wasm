@@ -279,7 +279,8 @@ function getBuildCmd(output) {
 		.replace('quickjs.c', 'temp-quickjs.c')
 		.replace('./out.js', '%out%')
 		.replaceAll('./', path.join(__dirname, './'))
-		.replace('%out%', output);
+		.replace('%out%', output)
+		.replace('-Oz', '-O3') + ' -flto -msimd128';
 }
 
 function getRawCmd() {
