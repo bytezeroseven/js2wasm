@@ -36,12 +36,10 @@ Module().then(wasm => {
 
 ## Bundling JS Files
 1. You need both emscripten & nodejs for generating independant JS bundles. The bytecode is masked and embedded in the WASM file. Certain functions are also trimmed out of wasm. Bundle is fully minified and mangled to reduced readability.
-2. Run `npm install`. 
-3. Run `node bundle.js [input_js_file] [output_js_file]` to bundle.
-
-### Using NPX command:
-1. Run `npm i -g`.
-2. Run `npx js2wasm [input_js_file] [output_js_file]` to bundle JS files from anywhere.
+2. Run `npm install`.
+3. Run `npm i -g`.
+4. Run `npx js2wasm -i [input_js_file] -o [output_js_file]` to bundle JS files from anywhere.
+5. Use `npx js2wasm -h` to see all options.
 
 ## Why bundle?
 Mainly for security reasons. It makes reverse engineering even harder. Here's everything it does:
