@@ -23,6 +23,11 @@ function transform(code, varRegex, propRegex, nameMap) {
 		return id;
 	}
 
+	function getName(name) {
+		if (nameMap && nameMap[name]) return nameMap[name];
+		return name;
+	}
+
 	function check(object, prop) {
 		if (varRegex && object.type === 'Identifier') return varRegex.test(object.name);
 		if (propRegex) return propRegex.test(prop);
@@ -40,7 +45,7 @@ function transform(code, varRegex, propRegex, nameMap) {
 						path.node.object, 
 						t.numericLiteral(getPropId(prop))
 					];
-					path.replaceWith(t.callExpression(t.identifier(nameMap['get_prop_by_id']), args))
+					path.replaceWith(t.callExpression(t.identifier(getName('get_prop_by_id')), args))
 				}
 			}
 		}, 
@@ -59,7 +64,7 @@ function transform(code, varRegex, propRegex, nameMap) {
 						t.numericLiteral(getPropId(prop)), 
 						right
 					];
-					path.replaceWith(t.callExpression(t.identifier(nameMap['set_prop_by_id']), args));
+					path.replaceWith(t.callExpression(t.identifier(getName('set_prop_by_id')), args));
 				}
 			}
 		}, 
@@ -77,7 +82,7 @@ function transform(code, varRegex, propRegex, nameMap) {
 						args.push(t.arrayExpression(path.node.arguments));
 					}
 
-					path.replaceWith(t.callExpression(t.identifier(nameMap['call_func_by_id']), args));
+					path.replaceWith(t.callExpression(t.identifier(getName('call_func_by_id')), args));
 				}
 			}
 		}
@@ -90,3 +95,13 @@ function transform(code, varRegex, propRegex, nameMap) {
 }
 
 module.exports = transform;
+
+/*const code = `
+
+el.style.border = '1px solid red';
+
+`;
+
+const result = transform(code, null, /style/);
+
+console.log(result.code)*/

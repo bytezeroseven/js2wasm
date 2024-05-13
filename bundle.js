@@ -280,7 +280,7 @@ function getBuildCmd(output) {
 		.replace('./out.js', '%out%')
 		.replaceAll('./', path.join(__dirname, './'))
 		.replace('%out%', output)
-		.replace('-Oz', '-O3') + ' -flto -msimd128';
+		.replace('-Oz', '-O3') + ' -flto';
 }
 
 function getRawCmd() {
