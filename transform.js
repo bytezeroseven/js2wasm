@@ -75,12 +75,9 @@ function transform(code, varRegex, propRegex, nameMap) {
 				if (check(path.node.callee.object, prop)) {
 					const args = [
 						path.node.callee.object, 
-						t.numericLiteral(getPropId(prop))
+						t.numericLiteral(getPropId(prop)), 
+						...path.node.arguments
 					];
-
-					if (path.node.arguments.length > 0) {
-						args.push(t.arrayExpression(path.node.arguments));
-					}
 
 					path.replaceWith(t.callExpression(t.identifier(getName('call_func_by_id')), args));
 				}

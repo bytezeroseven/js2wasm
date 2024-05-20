@@ -192,6 +192,92 @@ JSValue set_prop(JSContext* ctx, JSValueConst jsThis, int argc, JSValueConst* ar
 	return JS_TRUE;
 }
 
+void host_set_arg(JSContext* ctx, JSValue value) {
+	uint32_t tag = JS_VALUE_GET_NORM_TAG(value);
+
+	switch (tag) {
+		case JS_TAG_EXCEPTION: {
+			handle_exception(ctx);
+		}	break;
+
+		case JS_TAG_STRING: {
+			char* str = JS_ToCString(ctx, value);
+			host_set_arg_str(str);
+			JS_FreeCString(ctx, str);
+		}	break;
+
+		case JS_TAG_INT:
+		case JS_TAG_FLOAT64: {
+			double num;
+			JS_ToFloat64(ctx, &num, value);
+			host_set_arg_num(num);
+		}	break;
+
+		case JS_TAG_NULL:
+			host_set_arg_null();
+			break;
+
+		case JS_TAG_BOOL:
+			if (value == JS_TRUE) {
+				host_set_arg_true();
+			} else {
+				host_set_arg_false();
+			}
+			break;
+
+		case JS_TAG_BIG_INT: {
+			int64_t num;
+			JS_ToInt64Ext(ctx, &num, value);
+			host_set_arg_bigint(num);
+		}	break;
+
+		case JS_TAG_OBJECT: {
+			if (JS_IsFunction(ctx, value)) {
+
+				ContextData* ctxData = (ContextData*)JS_GetContextOpaque(ctx);
+				JSValue hostIdValue = JS_GetProperty(ctx, value, ctxData->hostObjectId);
+				if (JS_IsNumber(hostIdValue)) {
+					
+					int32_t hostId;
+					JS_ToInt32(ctx, &hostId, hostIdValue);
+					host_set_arg_hostobject(hostId);
+
+				} else {
+
+					host_set_arg_func(ctx, jsvalue_to_heap(value));
+
+				}
+
+				JS_FreeValue(ctx, hostIdValue);
+
+			} else {
+				size_t length;
+				uint8_t* data = JS_GetArrayBuffer(ctx, &length, value);
+
+				if (data) {
+					host_set_arg_arraybuffer(data, length);
+				} else {
+					JSValue json = JS_JSONStringify(ctx, value, JS_UNDEFINED, JS_UNDEFINED);
+					
+					if (JS_IsException(json)) {
+						handle_exception(ctx);
+					} else {
+						char* cjson = JS_ToCString(ctx, json);
+						host_set_arg_json(cjson);
+						JS_FreeCString(ctx, cjson);
+					}
+
+					JS_FreeValue(ctx, json);
+				}
+			}
+			break;
+		}
+
+		default:
+			host_set_arg_undefined();
+	}
+}
+
 void host_set_args(JSValue* ctx, JSValueConst array) {
 	int32_t length;
 	JSValue lengthValue = JS_GetProperty(ctx, array, ((ContextData*)JS_GetContextOpaque(ctx))->lengthAtom);
@@ -200,91 +286,7 @@ void host_set_args(JSValue* ctx, JSValueConst array) {
 
 	for (int i = 0; i < length; i++) {
 		JSValue value = JS_GetPropertyUint32(ctx, array, i);
-
-		uint32_t tag = JS_VALUE_GET_NORM_TAG(value);
-
-		switch (tag) {
-			case JS_TAG_EXCEPTION: {
-				handle_exception(ctx);
-			}	break;
-
-			case JS_TAG_STRING: {
-				char* str = JS_ToCString(ctx, value);
-				host_set_arg_str(str);
-				JS_FreeCString(ctx, str);
-			}	break;
-
-			case JS_TAG_INT:
-			case JS_TAG_FLOAT64: {
-				double num;
-				JS_ToFloat64(ctx, &num, value);
-				host_set_arg_num(num);
-			}	break;
-
-			case JS_TAG_NULL:
-				host_set_arg_null();
-				break;
-
-			case JS_TAG_BOOL:
-				if (value == JS_TRUE) {
-					host_set_arg_true();
-				} else {
-					host_set_arg_false();
-				}
-				break;
-
-			case JS_TAG_BIG_INT: {
-				int64_t num;
-				JS_ToInt64Ext(ctx, &num, value);
-				host_set_arg_bigint(num);
-			}	break;
-
-			case JS_TAG_OBJECT: {
-				if (JS_IsFunction(ctx, value)) {
-
-					ContextData* ctxData = (ContextData*)JS_GetContextOpaque(ctx);
-					JSValue hostIdValue = JS_GetProperty(ctx, value, ctxData->hostObjectId);
-					if (JS_IsNumber(hostIdValue)) {
-						
-						int32_t hostId;
-						JS_ToInt32(ctx, &hostId, hostIdValue);
-						host_set_arg_hostobject(hostId);
-
-					} else {
-
-						host_set_arg_func(ctx, jsvalue_to_heap(value));
-
-					}
-
-					JS_FreeValue(ctx, hostIdValue);
-
-				} else {
-					size_t length;
-					uint8_t* data = JS_GetArrayBuffer(ctx, &length, value);
-
-					if (data) {
-						host_set_arg_arraybuffer(data, length);
-					} else {
-						JSValue json = JS_JSONStringify(ctx, value, JS_UNDEFINED, JS_UNDEFINED);
-						
-						if (JS_IsException(json)) {
-							handle_exception(ctx);
-						} else {
-							char* cjson = JS_ToCString(ctx, json);
-							host_set_arg_json(cjson);
-							JS_FreeCString(ctx, cjson);
-						}
-
-						JS_FreeValue(ctx, json);
-					}
-				}
-				break;
-			}
-
-			default:
-				host_set_arg_undefined();
-		}
-
+		host_set_arg(ctx, value);
 		JS_FreeValue(ctx, value);
 	}
 }
@@ -521,8 +523,10 @@ JSValue call_func_by_id(JSContext* ctx, JSValueConst jsThis, int argc, JSValueCo
 	int32_t prop;
 	JS_ToInt32(ctx, &prop, argv[1]);
 
-	if (argc >= 3) {
-		host_set_args(ctx, argv[2]);
+	if (argc > 2) {
+		for (int i = 2; i < argc; i++) {
+			host_set_arg(ctx, argv[i]);
+		}
 	}
 
 	return host_call_func_by_id(ctx, id, prop);
