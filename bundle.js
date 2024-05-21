@@ -137,7 +137,7 @@ async function afterBuild(output) {
 		mangle: {
 			toplevel: true, 
 			properties: {
-				regex: /\b(?:object|refCount|ref|ptr|ctx)\b/, 
+				regex: /\b(?:object|refCount|ref|ptr|ctx|token)\b/, 
 				builtins: true
 			}
 		}
