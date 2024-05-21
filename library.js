@@ -16,13 +16,15 @@ addToLibrary({
 	},
 
 	host_call_func: function (ctx, func, target) {
-		const value = hostObjects[func].object.apply(hostObjects[target].object, args);
+		const _args = args;
 		args = [];
+		const value = hostObjects[func].object.apply(hostObjects[target].object, _args);
 		return toJSValue(ctx, value);
 	},
 	host_construct: function (ctx, func) {
-		const value = new hostObjects[func].object(...args);
+		const _args = args;
 		args = [];
+		const value = new hostObjects[func].object(..._args);
 		return toJSValue(ctx, value);
 	},
 	host_get_prop: function (ctx, id, prop) {
@@ -137,8 +139,9 @@ addToLibrary({
 	},
 	host_call_func_by_id: function (ctx, object, prop) {
 		object = hostObjects[object].object;
-		const value = object[props[prop]].apply(object, args);
+		const _args = args;
 		args = [];
+		const value = object[props[prop]].apply(object, _args);
 		return toJSValue(ctx, value);
 	}, 
 	host_get_prop_by_id: function (ctx, id, prop) {
