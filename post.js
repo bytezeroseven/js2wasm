@@ -92,20 +92,28 @@ function toJSValuePtr(ctx, value) {
 
 const funcMap = new Map();
 
-const registry = new FinalizationRegistry(id => {
+function onFinalize(id) {
 	const entry = funcMap.get(id);
 	QJS_FreeValue(entry.ctx, entry.ptr);
 	_free(entry.ptr);
 	funcMap.delete(id);
-});
+}
+
+const registry = new FinalizationRegistry(onFinalize);
 
 function getFunction(ctx, funcPtr) {
 	const func = new BigUint64Array(Module.HEAP8.buffer, funcPtr, 1)[0];
 
 	const cache = funcMap.get(func);
 	if (cache) {
-		_free(funcPtr);
-		return cache.ref.deref();
+		const cachedInvoker = cache.ref.deref();
+		if (cachedInvoker) {
+			_free(funcPtr);	
+			return cachedInvoker;
+		} else {
+			onFinalize(func);
+			registry.unregister(cache.token);
+		}
 	}
 
 	QJS_DupValue(ctx, funcPtr);
@@ -128,13 +136,15 @@ function getFunction(ctx, funcPtr) {
 		return getReturnValue();
 	}
 
+	const token = {};
+	registry.register(invoker, func, token);
+
 	funcMap.set(func, {
+		token, 
 		ref: new WeakRef(invoker), 
 		ptr: funcPtr, 
 		ctx
 	});
-
-	registry.register(invoker, func);
 
 	return invoker;
 }
