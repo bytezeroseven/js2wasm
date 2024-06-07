@@ -697,7 +697,7 @@ void eval(uint8_t* bytes, size_t length) {
 		"		return set_prop(target[__hostObjectId__], prop, value);\n"
 		"	}, \n"
 		"	apply(target, thisArgs, args) {\n"
-		"		return call_func(target[__hostObjectId__], thisArgs[__hostObjectId__], args);\n"
+		"		return call_func(target[__hostObjectId__], thisArgs ? thisArgs[__hostObjectId__] : 0, args);\n"
 		"	}, \n"
 		"	construct(target, args) {\n"
 		"		return construct(target[__hostObjectId__], args);\n"

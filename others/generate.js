@@ -12,7 +12,7 @@ const config = {
 		return set_prop(target[__hostObjectId__], prop, value);
 	}, 
 	apply(target, thisArgs, args) {
-		return call_func(target[__hostObjectId__], thisArgs[__hostObjectId__], ...args);
+		return call_func(target[__hostObjectId__], thisArgs ? thisArgs[__hostObjectId__] : 0, ...args);
 	}, 
 	construct(target, args) {
 		return construct(target[__hostObjectId__], ...args);
