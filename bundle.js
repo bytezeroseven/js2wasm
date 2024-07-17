@@ -206,7 +206,10 @@ function writeCFile(wasm, bytes, mangled, props) {
 	let propCode = '';
 
 	if (props) {
-		const propBytes = new TextEncoder().encode(JSON.stringify(props));
+		const json = JSON.stringify(props);
+		console.log(json);
+
+		const propBytes = new TextEncoder().encode(json);
 		for (let i = 0;i < propBytes.length; i++) {
 			propBytes[i] ^= mask[i % mask.length];
 		}
@@ -223,7 +226,7 @@ function writeCFile(wasm, bytes, mangled, props) {
 			unmaskedPropBytes[i] = maskedPropBytes[i] ^ mask[i % ${mask.length}];
 		}
 
-		host_set_prop_list(unmaskedPropBytes);
+		host_set_prop_list(unmaskedPropBytes, ${propBytes.length});
 		free(unmaskedPropBytes);
 		`;
 	}

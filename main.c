@@ -47,7 +47,7 @@ extern JSValue host_get_prop(JSContext* ctx, int32_t id, char* prop);
 extern JSValue host_call_func(JSContext* ctx, int32_t func, int32_t target);
 extern JSValue host_construct(JSContext* ctx, int32_t cls);
 
-extern void host_set_prop_list(char* json);
+extern void host_set_prop_list(uint8_t* json, int32_t length);
 extern void host_set_prop_by_id_num(int32_t id, int32_t prop, double num);
 extern void host_set_prop_by_id_str(int32_t id, int32_t prop, char* value);
 extern void host_set_prop_by_id_null(int32_t id, int32_t prop);
