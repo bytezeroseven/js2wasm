@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title></title>
+</head>
+<body>
+	<div>Run in chrome with no extensions.</div>
+	<textarea style="width: 500px; height: 300px;"></textarea>
+	<script src="../out.js"></script>
+	<script>
+
+		const code = `
+
+		JSON.stringify(Object.getOwnPropertyNames(globalThis));
+
+		`;
+
+		Module().then(wasm => {
+			const bytes = wasm.getBytecode(code);
+
+			const qjsProps = JSON.parse(wasm.eval(bytes));
+			const ignoreMap = {
+				Module: true
+			};
+
+			for (const prop of qjsProps) {
+				ignoreMap[prop] = true;
+			}
+
+			const windowProps = Object.getOwnPropertyNames(globalThis);
+			const props = windowProps.filter(prop => {
+				return !(prop in ignoreMap) && window[prop];
+			});
+
+			document.querySelector('textarea').value = JSON.stringify(props, undefined, '\t');
+		});
+
+	</script>
+</body>
+</html>

@@ -9,7 +9,7 @@
 	<script src="../out.js"></script>
 	<script>
 
-		const code = `
+		/*const code = `
 
 		const canvas = window.document.createElement('canvas');
 		canvas.width = canvas.height = 500;
@@ -85,6 +85,12 @@
 
 		animate();
 
+		`;*/
+
+		const code = `
+
+		JSON.stringify(Object.getOwnPropertyNames(globalThis));
+
 		`;
 
 		Module().then(wasm => {
@@ -93,7 +99,17 @@
 			const base64 = toBase64(bytes);
 			console.log(base64);
 
-			wasm.eval(bytes);
+			const qjsProps = JSON.parse(wasm.eval(bytes));
+			const qjsPropMap = {};
+
+			for (const prop of qjsProps) {
+				qjsPropMap[prop] = true;
+			}
+
+			const windowProps = Object.getOwnPropertyNames(globalThis);
+			const props = windowProps.filter(prop => !(prop in qjsPropMap));
+
+			console.log({ props });
 		});
 
 		function toBase64(array) {
