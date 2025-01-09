@@ -136,3 +136,45 @@ el.style.margin = '10px';
 const result = transform(code, /el/);
 
 console.log(result.code)*/
+
+function getProcessedNode(root, skip = 0, varRegex) {
+	let canProcess = false;
+	let n = root;
+
+	const nodes = [];
+
+	while (n) {
+		nodes.push(n);
+
+		if (t.isIdentifier(n)) {
+			if (varRegex.test(n.name)) {
+				canProcess = true;
+				break;
+			}
+		} else if (nodes.length > 0 && t.isThisExpression(n.object) && t.isIdentifier(n.property) && varRegex.test(n.property.name)) {
+			canProcess = true;
+			break;
+		}
+
+		n = n.object;
+	}
+
+	if (!canProcess) return;
+
+	n = nodes.pop();
+	
+	for (let i = nodes.length - 1; i >= skip; i--) {
+		const node = nodes[i];
+		if (!node.computed) {
+			n = t.callExpression(t.identifier(getName('get_prop_by_id')), [
+				n, 
+				getPropId(node.property.name)
+			]);
+		} else {
+			node.object = n;
+			n = node;
+		}
+	}
+
+	return n;
+}
