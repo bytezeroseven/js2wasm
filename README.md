@@ -34,6 +34,9 @@ Module().then(wasm => {
 1. Install emscripten on your machine.
 2. Run `make` to bundle the C files and generate the wasm module. 
 
+## Can I use this in production? 
+Here's a web game written from scratch in plain JS and converted to wasm using this: [Sandbox Hornex](https://sandbox.hornex.pro).
+
 ## Bundling JS Files
 1. You need both emscripten & nodejs for generating independant JS bundles. The bytecode is masked and embedded in the WASM file. Certain functions are also trimmed out of wasm. Bundle is fully minified and mangled to reduced readability.
 2. Run `npm install`.

@@ -11,6 +11,7 @@ program
 	.option('--terser-config <json>', 'Specifies options for minifying code using terser.')
 	.option('--var-regex <regex>', 'Defines regex for identifiers to extract properties name from.')
 	.option('--prop-regex <regex>', 'Defines regex for properties names to extract.')
+	.option('--post-js <file>', 'Defines external code to inject into bundle.')
 	.action(run)
 	.parse();
 

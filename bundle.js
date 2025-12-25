@@ -49,7 +49,7 @@ module.exports = async function bundle(options) {
 		console.log(`bytecode length: ${bytes.length}`);
 
 		writeCFile(wasm, bytes, nameMap, props);
-		writeJsFile();
+		writeJsFile(options.postJs && fs.readFileSync(options.postJs, 'utf8'));
 
 		runCmd(getBuildCmd(options.output), function () {
 			deleteFile('temp-main.c');
@@ -260,9 +260,11 @@ function maskBytes(bytes) {
 	return [mask, maskedBytes];
 }
 
-function writeJsFile() {
+function writeJsFile(postJs) {
 	let code = readFile('./post.js');
 	code = code.replace(/\/\* no_bundle \*\/[\s\S]*?\/\* no_bundle \*\//g, '');
+
+	if (postJs) code += '\n\n' + postJs;
 
 	writeFile('temp-post.js', code);
 }
